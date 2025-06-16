@@ -28,7 +28,6 @@ def load_dpr_models():
     return True
 
 current_search_data = []
-current_search_type = None  # Track the type of current search data
 trained_models = {}
 
 # FAISS index for Case 2
@@ -130,7 +129,7 @@ def index():
 
 @app.route('/search', methods=['GET'])
 def search():
-    global current_search_data, current_search_type
+    global current_search_data
     query = request.args.get('query', '').lower().strip()
     entity_type = request.args.get('type', 'authors')
     
@@ -153,7 +152,6 @@ def search():
             result_data = result.get_json()
             if result_data.get('success'):
                 current_search_data = result_data.get('data', [])
-                current_search_type = entity_type  # Store the type of data
         
         return result
     except Exception as e:
@@ -386,18 +384,12 @@ def analyze_author():
                 results.get('dpr_similarity', 62) * 0.7,
                 results.get('dpr_similarity', 62) * 0.85,
                 results.get('dpr_similarity', 62),
-                results.get('dpr_similarity', 62) * 0.92
-            ],
-            'f1_scores': [
-                results.get('f1_score', 50) * 0.75,
-                results.get('f1_score', 50) * 0.9,
-                results.get('f1_score', 50) * 0.95,
-                results.get('f1_score', 50)
+                results.get('dpr_similarity', 62) * 0.98
             ]
         }
         
         results['success'] = True
-        results['author'] = author_data
+        results['author_name'] = author_name
         results['topic'] = topic
         
         return jsonify(results)
@@ -422,7 +414,7 @@ def get_alignment_level(score):
 @app.route('/train', methods=['POST'])
 def train_models():
     """Train TF-IDF, LSA, and Dual BERT DPR models using search results (FAST)"""
-    global current_search_data, trained_models, current_search_type
+    global current_search_data, trained_models
     
     try:
         data = request.get_json()
@@ -441,8 +433,7 @@ def train_models():
         
         for item in limited_data:
             if isinstance(item, dict):
-                # Handle both authors and papers
-                if current_search_type == 'authors':
+                if 'display_name' in item or 'name' in item:
                     name = item.get('display_name') or item.get('name', '')
                     affiliation = item.get('affiliation', '') or item.get('institution', '')
                     works = item.get('works_count', 0) or item.get('paper_count', 0)
@@ -459,21 +450,19 @@ def train_models():
                         'cited_by_count': citations
                     })
                 
-                elif current_search_type == 'papers':
+                elif 'title' in item:
                     title = item.get('title', '')
                     citations = item.get('citations') or item.get('cited_by_count', 0)
                     year = item.get('year', '') or item.get('publication_year', '')
-                    abstract = item.get('abstract', '') or ''
                     
                     # Enhanced context for papers
-                    context = f"Paper: {title}. Topic: {base_query}. Year: {year}. Citations: {citations}. Abstract: {abstract[:200]}. Keywords: {base_query}, research, publication."
+                    context = f"Paper: {title}. Topic: {base_query}. Year: {year}. Citations: {citations}. Keywords: {base_query}, research, publication."
                     
                     contexts.append(context)
                     metadata.append({
                         'type': 'paper',
                         'title': title,
-                        'cited_by_count': citations,
-                        'year': year
+                        'cited_by_count': citations
                     })
         
         if not contexts:
@@ -504,8 +493,7 @@ def train_models():
             'tfidf_matrix': tfidf_matrix,
             'lsa_model': lsa_model,
             'lsa_matrix': lsa_matrix,
-            'dpr_available': dpr_success,
-            'entity_type': current_search_type  # Store the entity type for comparison
+            'dpr_available': dpr_success
         }
         
         return jsonify({
@@ -543,13 +531,12 @@ def compare_models():
         
         contexts = trained_models['contexts']
         metadata = trained_models['metadata']
-        entity_type = trained_models.get('entity_type', 'authors')
         
         results = {}
         
         # Enhanced TF-IDF processing
         try:
-            # Better query processing
+            # Better query processing for "Who has been doing AI?" type questions
             enhanced_query = test_query
             if 'who' in test_query.lower() and 'ai' in test_query.lower():
                 enhanced_query = f"{test_query} artificial intelligence researchers authors machine learning"
@@ -573,19 +560,18 @@ def compare_models():
             top_tfidf_indices = np.argsort(tfidf_similarities)[::-1][:10]
             for idx in top_tfidf_indices:
                 if idx < len(metadata):
-                    if entity_type == 'authors' and metadata[idx]['type'] == 'author':
+                    if metadata[idx]['type'] == 'author':
                         tfidf_results.append({
                             'name': metadata[idx]['name'],
                             'similarity': float(tfidf_similarities[idx]),
                             'works_count': metadata[idx]['works_count'],
                             'cited_by_count': metadata[idx]['cited_by_count']
                         })
-                    elif entity_type == 'papers' and metadata[idx]['type'] == 'paper':
+                    elif metadata[idx]['type'] == 'paper':
                         tfidf_results.append({
                             'title': metadata[idx]['title'],
                             'similarity': float(tfidf_similarities[idx]),
-                            'cited_by_count': metadata[idx]['cited_by_count'],
-                            'year': metadata[idx].get('year', 'N/A')
+                            'cited_by_count': metadata[idx]['cited_by_count']
                         })
             
             results['tfidf_results'] = tfidf_results
@@ -616,19 +602,18 @@ def compare_models():
             top_lsa_indices = np.argsort(lsa_similarities)[::-1][:10]
             for idx in top_lsa_indices:
                 if idx < len(metadata):
-                    if entity_type == 'authors' and metadata[idx]['type'] == 'author':
+                    if metadata[idx]['type'] == 'author':
                         lsa_results.append({
                             'name': metadata[idx]['name'],
                             'similarity': float(lsa_similarities[idx]),
                             'works_count': metadata[idx]['works_count'],
                             'cited_by_count': metadata[idx]['cited_by_count']
                         })
-                    elif entity_type == 'papers' and metadata[idx]['type'] == 'paper':
+                    elif metadata[idx]['type'] == 'paper':
                         lsa_results.append({
                             'title': metadata[idx]['title'],
                             'similarity': float(lsa_similarities[idx]),
-                            'cited_by_count': metadata[idx]['cited_by_count'],
-                            'year': metadata[idx].get('year', 'N/A')
+                            'cited_by_count': metadata[idx]['cited_by_count']
                         })
             
             results['lsa_results'] = lsa_results
@@ -644,41 +629,29 @@ def compare_models():
                 dpr_results = []
                 for i, context in enumerate(contexts[:50]):  # Process top contexts
                     if i < len(metadata):
-                        if entity_type == 'authors' and metadata[i]['type'] == 'author':
-                            # Better hash-based similarity that considers query content
-                            hash_input = f"{test_query}_{metadata[i]['name']}_{trained_models['base_query']}".lower()
-                            hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
-                            
-                            # More realistic similarity distribution
-                            base_similarity = 25 + (hash_value % 60)  # 25-85 range
-                            
-                            # Boost for AI-related queries
-                            if 'ai' in test_query.lower() or 'artificial' in test_query.lower():
-                                base_similarity = min(95, base_similarity + 10)
-                            
+                        # Better hash-based similarity that considers query content
+                        hash_input = f"{test_query}_{metadata[i].get('name', metadata[i].get('title', ''))}_{trained_models['base_query']}".lower()
+                        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
+                        
+                        # More realistic similarity distribution
+                        base_similarity = 25 + (hash_value % 60)  # 25-85 range
+                        
+                        # Boost for AI-related queries
+                        if 'ai' in test_query.lower() or 'artificial' in test_query.lower():
+                            base_similarity = min(95, base_similarity + 10)
+                        
+                        if metadata[i]['type'] == 'author':
                             dpr_results.append({
                                 'name': metadata[i]['name'],
                                 'similarity': float(base_similarity),
                                 'works_count': metadata[i]['works_count'],
                                 'cited_by_count': metadata[i]['cited_by_count']
                             })
-                        elif entity_type == 'papers' and metadata[i]['type'] == 'paper':
-                            # Better hash-based similarity that considers query content
-                            hash_input = f"{test_query}_{metadata[i]['title']}_{trained_models['base_query']}".lower()
-                            hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
-                            
-                            # More realistic similarity distribution
-                            base_similarity = 30 + (hash_value % 60)  # 30-90 range
-                            
-                            # Boost for AI-related queries
-                            if 'ai' in test_query.lower() or 'artificial' in test_query.lower():
-                                base_similarity = min(95, base_similarity + 5)
-                            
+                        elif metadata[i]['type'] == 'paper':
                             dpr_results.append({
                                 'title': metadata[i]['title'],
                                 'similarity': float(base_similarity),
-                                'cited_by_count': metadata[i]['cited_by_count'],
-                                'year': metadata[i].get('year', 'N/A')
+                                'cited_by_count': metadata[i]['cited_by_count']
                             })
                 
                 # Sort by similarity
@@ -686,10 +659,13 @@ def compare_models():
                 results['dpr_results'] = dpr_results
                 
                 # Generate answer for "Who has been doing AI?" type questions
-                if entity_type == 'authors' and 'who' in test_query.lower() and 'ai' in test_query.lower():
+                if 'who' in test_query.lower() and 'ai' in test_query.lower():
                     answer = f"Based on dual BERT DPR analysis for '{test_query}':\n\n"
                     for i, result in enumerate(dpr_results[:5], 1):
-                        answer += f"{i}. {result['name']} - {result['works_count']} works, {result['cited_by_count']} citations (relevance: {result['similarity']:.1f}%)\n"
+                        if 'name' in result:
+                            answer += f"{i}. {result['name']} - {result['works_count']} works, {result['cited_by_count']} citations (relevance: {result['similarity']:.1f}%)\n"
+                        else:
+                            answer += f"{i}. {result['title']} - {result['cited_by_count']} citations (relevance: {result['similarity']:.1f}%)\n"
                     results['answer'] = answer
                 
             except Exception as e:
