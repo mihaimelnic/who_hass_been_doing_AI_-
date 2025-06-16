@@ -88,7 +88,7 @@ The engine supports **3 main use-cases**:
 ## Author & Supervisor
 
 - **Author**: Melnic Mihaita-Nicusor  
-- **Supervisor**: Filip Ilievski  
+- **Supervisor**: Dr. Filip Ilievski  
 - **University**: Vrije Universiteit Amsterdam  
 - **Program**: BSc Artificial Intelligence (3rd Year Final Project)
 
