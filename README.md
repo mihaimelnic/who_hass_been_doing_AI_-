@@ -41,7 +41,7 @@ F --> J[Computer Vision]
 F --> K[Artificial Intelligence]
 ```
 
-3. **Interactive Demo Engine Pipeline**
+2. **Interactive Demo Engine Pipeline**
 ```mermaid
 graph TD
 W[Web Interface] --> A
