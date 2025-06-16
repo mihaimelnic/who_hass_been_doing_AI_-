@@ -251,7 +251,7 @@
             <div class="tab-pane fade" id="case3" role="tabpanel">
                 <div class="case-header">
                     <h3>Case 3: Institution-Topic Ranking</h3>
-                    <p>Rank institutions by their contribution to a topic based on paper similarity scores and visualize their influence across time and geography</p>
+                    <p>Rank institutions by their contribution to a topic based on paper similarity scores.</p>
                 </div>
                 
                 <div class="card mb-4">
@@ -516,6 +516,7 @@
             });
         }
 
+        // Display comparison results
         function displayComparisonResults(data) {
             // TF-IDF Results
             const tfidfResults = document.getElementById('tfidfResults');
@@ -525,28 +526,25 @@
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
                     
-                    if (result.name) {
-                        li.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>${result.name}</span>
-                                <span class="badge bg-primary rounded-pill">${result.similarity.toFixed(2)}</span>
+                    // Handle both authors and papers
+                    const displayName = result.name || result.title || 'Unknown';
+                    const additionalInfo = result.works_count ? 
+                        `<small class="text-muted">Works: ${result.works_count}, Citations: ${result.cited_by_count || 0}</small>` :
+                        result.cited_by_count ? 
+                        `<small class="text-muted">Citations: ${result.cited_by_count}</small>` : '';
+                    
+                    li.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span>${displayName}</span>
+                                ${additionalInfo ? `<br>${additionalInfo}` : ''}
                             </div>
-                            <div class="similarity-bar">
-                                <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                            </div>
-                        `;
-                    } else if (result.title) {
-                        li.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>${result.title}</span>
-                                <span class="badge bg-primary rounded-pill">${result.similarity.toFixed(2)}</span>
-                            </div>
-                            <div class="similarity-bar">
-                                <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                            </div>
-                            <small>Year: ${result.year}, Citations: ${result.cited_by_count}</small>
-                        `;
-                    }
+                            <span class="badge bg-primary rounded-pill">${result.similarity.toFixed(2)}</span>
+                        </div>
+                        <div class="similarity-bar">
+                            <div class="similarity-fill" style="width: ${result.similarity}%"></div>
+                        </div>
+                    `;
                     tfidfResults.appendChild(li);
                 });
             }
@@ -559,28 +557,25 @@
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
                     
-                    if (result.name) {
-                        li.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>${result.name}</span>
-                                <span class="badge bg-success rounded-pill">${result.similarity.toFixed(2)}</span>
+                    // Handle both authors and papers
+                    const displayName = result.name || result.title || 'Unknown';
+                    const additionalInfo = result.works_count ? 
+                        `<small class="text-muted">Works: ${result.works_count}, Citations: ${result.cited_by_count || 0}</small>` :
+                        result.cited_by_count ? 
+                        `<small class="text-muted">Citations: ${result.cited_by_count}</small>` : '';
+                    
+                    li.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span>${displayName}</span>
+                                ${additionalInfo ? `<br>${additionalInfo}` : ''}
                             </div>
-                            <div class="similarity-bar">
-                                <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                            </div>
-                        `;
-                    } else if (result.title) {
-                        li.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>${result.title}</span>
-                                <span class="badge bg-success rounded-pill">${result.similarity.toFixed(2)}</span>
-                            </div>
-                            <div class="similarity-bar">
-                                <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                            </div>
-                            <small>Year: ${result.year}, Citations: ${result.cited_by_count}</small>
-                        `;
-                    }
+                            <span class="badge bg-success rounded-pill">${result.similarity.toFixed(2)}</span>
+                        </div>
+                        <div class="similarity-bar">
+                            <div class="similarity-fill" style="width: ${result.similarity}%"></div>
+                        </div>
+                    `;
                     lsaResults.appendChild(li);
                 });
             }
@@ -593,28 +588,25 @@
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
                     
-                    if (result.name) {
-                        li.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>${result.name}</span>
-                                <span class="badge bg-info rounded-pill">${result.similarity.toFixed(2)}</span>
+                    // Handle both authors and papers
+                    const displayName = result.name || result.title || 'Unknown';
+                    const additionalInfo = result.works_count ? 
+                        `<small class="text-muted">Works: ${result.works_count}, Citations: ${result.cited_by_count || 0}</small>` :
+                        result.cited_by_count ? 
+                        `<small class="text-muted">Citations: ${result.cited_by_count}</small>` : '';
+                    
+                    li.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span>${displayName}</span>
+                                ${additionalInfo ? `<br>${additionalInfo}` : ''}
                             </div>
-                            <div class="similarity-bar">
-                                <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                            </div>
-                        `;
-                    } else if (result.title) {
-                        li.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>${result.title}</span>
-                                <span class="badge bg-info rounded-pill">${result.similarity.toFixed(2)}</span>
-                            </div>
-                            <div class="similarity-bar">
-                                <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                            </div>
-                            <small>Year: ${result.year}, Citations: ${result.cited_by_count}</small>
-                        `;
-                    }
+                            <span class="badge bg-info rounded-pill">${result.similarity.toFixed(2)}</span>
+                        </div>
+                        <div class="similarity-bar">
+                            <div class="similarity-fill" style="width: ${result.similarity}%"></div>
+                        </div>
+                    `;
                     dprResults.appendChild(li);
                 });
             }
@@ -691,20 +683,20 @@
             const rankings = document.getElementById('institutionRankings');
             rankings.innerHTML = '';
             
-            results.forEach(inst => {
+            results.forEach(institution => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${inst.rank}</td>
-                    <td>${inst.name}</td>
-                    <td>${inst.papers.toLocaleString()}</td>
-                    <td>${inst.citations.toLocaleString()}</td>
-                    <td>${inst.score.toFixed(3)}</td>
+                    <td>${institution.rank}</td>
+                    <td>${institution.name}</td>
+                    <td>${institution.papers.toLocaleString()}</td>
+                    <td>${institution.citations.toLocaleString()}</td>
+                    <td>${institution.score.toFixed(3)}</td>
                 `;
                 rankings.appendChild(row);
             });
         }
 
-        // FAISS Author Search for Case 2
+        // FAISS search function
         async function searchAuthorsByTopic() {
             const topic = document.getElementById('topicSearch').value.trim();
             
@@ -723,22 +715,21 @@
                 const response = await fetch('/search_authors_by_topic', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ topic: topic })
+                    body: JSON.stringify({
+                        topic: topic
+                    })
                 });
                 
                 const data = await response.json();
                 
-                if (!data.success) {
+                if (data.success) {
+                    displayTopicSearchResults(data);
+                } else {
                     throw new Error(data.error || 'Search failed');
                 }
-                
-                // Display results
-                displayTopicSearchResults(data);
-                
             } catch (error) {
-                console.error('FAISS search error:', error);
                 document.getElementById('topicError').textContent = error.message;
                 document.getElementById('topicError').style.display = 'block';
             } finally {
@@ -972,9 +963,9 @@
                     
                     searchData.data.forEach(author => {
                         if (author && typeof author === 'object') {
-                            // Extract institution information
-                            let institutionName = author.affiliation || 
-                                                author.institution || 
+                            // Extract institution information with better field mapping
+                            let institutionName = author.institution || 
+                                                author.affiliation || 
                                                 author.last_known_institution ||
                                                 (author.affiliations && author.affiliations[0] && author.affiliations[0].institution && author.affiliations[0].institution.display_name) ||
                                                 'Unknown Institution';
@@ -992,10 +983,24 @@
                                     };
                                 }
                                 
-                                // Add author data
+                                // Add author data with better field mapping
                                 institutionStats[institutionName].authors.push(author);
-                                institutionStats[institutionName].totalPapers += author.works_count || author.paper_count || 0;
-                                institutionStats[institutionName].totalCitations += author.cited_by_count || author.total_citations || 0;
+                                
+                                // Extract papers count with multiple field options
+                                const paperCount = author.works_count || 
+                                                 author.paper_count || 
+                                                 author.total_papers || 
+                                                 author.cv_papers || 
+                                                 0;
+                                
+                                // Extract citations count with multiple field options
+                                const citationCount = author.cited_by_count || 
+                                                    author.total_citations || 
+                                                    author.citations || 
+                                                    0;
+                                
+                                institutionStats[institutionName].totalPapers += paperCount;
+                                institutionStats[institutionName].totalCitations += citationCount;
                             }
                         }
                     });
@@ -1075,4 +1080,4 @@
         });
     </script>
 </body>
-</html>s
+</html>
