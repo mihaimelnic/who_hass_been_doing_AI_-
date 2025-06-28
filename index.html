@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bachelors project: DEMO</title>
+    <title>AI Recommender Engine: DEMO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { padding-top: 20px; }
         .tab-content { padding: 20px 0; }
         .result-card { margin-bottom: 20px; }
         .loading { display: none; text-align: center; margin: 20px 0; }
-        .chart-container { margin: 20px 0; }
         .error-message { color: red; font-weight: bold; }
         .case-header { 
             background-color: #f8f9fa; 
@@ -52,167 +50,97 @@
             align-items: center;
             justify-content: center;
         }
+        .method-section {
+            margin-bottom: 30px;
+        }
+        .global-training-alert {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+        }
+        .faiss-badge {
+            background: linear-gradient(135deg, #5f27cd 0%, #341f97 100%);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .entity-card {
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4">AI recommender engine: DEMO</h1>
-        
-        <!-- Data Status -->
+        <h1 class="mb-4">AI Recommender Engine: DEMO</h1>
         <div class="alert alert-info" id="dataStatus">
             <h5>Data Status</h5>
-            <p id="dataStatusText">Search API is running</p>
+            <p id="dataStatusText">Data is connected</p>
         </div>
 
-        <!-- Navigation Tabs -->
         <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="case1-tab" data-bs-toggle="tab" data-bs-target="#case1" type="button" role="tab">Case 1: Search & Compare</button>
+                <button class="nav-link active" id="case2-tab" data-bs-toggle="tab" data-bs-target="#case2" type="button" role="tab">Scientific Retrieval Section</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="case2-tab" data-bs-toggle="tab" data-bs-target="#case2" type="button" role="tab">Case 2: FAISS Author Search</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="case3-tab" data-bs-toggle="tab" data-bs-target="#case3" type="button" role="tab">Case 3: Institution Ranking</button>
+                <button class="nav-link" id="case3-tab" data-bs-toggle="tab" data-bs-target="#case3" type="button" role="tab">Enhanced Institution Ranking</button>
             </li>
         </ul>
 
         <div class="tab-content" id="myTabContent">
-            <div class="tab-pane fade show active" id="case1" role="tabpanel">
+            <div class="tab-pane fade show active" id="case2" role="tabpanel">
                 <div class="case-header">
-                    <h3>Case 1: OpenAlex data and Model Comparison</h3>
-                    <p>Search for results in local concept-based JSON data (AI, ML, DL, CV, RL), then compare DPR/TF-IDF/LSA similarity scores</p>
-                </div>
-
-                <!-- Step 1: Search -->
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="card-title mb-0">Step 1: Search Local Concept Data</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-8">
-                                <input type="text" id="searchQuery" class="form-control" placeholder="Enter search query (e.g., artificial intelligence)">
-                            </div>
-                            <div class="col-md-2">
-                                <select id="entityType" class="form-select">
-                                    <option value="authors">Authors</option>
-                                    <option value="papers">Papers</option>
-                                    <option value="institutions">Institutions</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button id="searchButton" class="btn btn-primary w-100">Search</button>
-                            </div>
-                        </div>
-                        
-                        <div class="loading" id="searchLoading">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p>Searching local concept data...</p>
-                        </div>
-                        
-                        <div class="alert alert-danger" id="searchError" style="display: none;"></div>
-                        <div id="searchResults"></div>
-                    </div>
-                </div>
-
-                <!-- Step 2: Train and Compare -->
-                <div class="card mb-4">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="card-title mb-0">Step 2: Train and Compare Models</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label for="modelQuery" class="form-label">Base Query (for model training)</label>
-                                <input type="text" id="modelQuery" class="form-control" placeholder="e.g., artificial intelligence">
-                            </div>
-                            <div class="col-md-4">
-                                <label for="testQuery" class="form-label">Test Query (for comparison)</label>
-                                <input type="text" id="testQuery" class="form-control" placeholder="e.g., machine learning">
-                            </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <button id="trainButton" class="btn btn-primary me-2">Train Models</button>
-                                <button id="compareButton" class="btn btn-success" disabled>Compare Methods</button>
-                            </div>
-                        </div>
-                        
-                        <div class="loading" id="modelLoading">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p>Training TF-IDF, LSA, and DPR models...</p>
-                        </div>
-                        
-                        <div class="loading" id="compareLoading">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p>Comparing similarity scores across methods...</p>
-                        </div>
-                        
-                        <div class="alert alert-danger" id="modelError" style="display: none;"></div>
-                        
-                        <div id="modelResults" style="display: none;">
-                            <div class="alert alert-success">
-                                <h5>Models Trained Successfully</h5>
-                                <div id="modelStats"></div>
-                            </div>
-                        </div>
-                        
-                        <div id="compareResults">
-                            <div class="chart-container" style="display: none;">
-                                <h4>Method Comparison (Similarity Scores)</h4>
-                                <canvas id="comparisonChart" height="300"></canvas>
-                            </div>
-                            
-                            <div class="row" id="methodResults" style="display: none;">
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-header bg-primary text-white">
-                                            <h5 class="card-title mb-0">TF-IDF Results</h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <ul class="list-group" id="tfidfResults"></ul>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-header bg-success text-white">
-                                            <h5 class="card-title mb-0">LSA Results</h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <ul class="list-group" id="lsaResults"></ul>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-header bg-info text-white">
-                                            <h5 class="card-title mb-0">DPR Results</h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <ul class="list-group" id="dprResults"></ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Case 2: FAISS Author Search -->
-            <div class="tab-pane fade" id="case2" role="tabpanel">
-                <div class="case-header">
-                    <h3>Case 2: FAISS Author Search</h3>
-                    <p>For a given topic, find the top 5 most related authors using FAISS index</p>
+                    <h3>Scientific Retrieval Section</h3>
+                    <p>Find top results using TF-IDF+FAISS, LSA+FAISS, and DPR+FAISS trained on complete dataset across 5 fields</p>
                 </div>
                 
                 <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="card-title mb-0">🚀 Step 1: Train Global Models with FAISS on ALL Data</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert global-training-alert" id="globalTrainingStatus" style="display: none;">
+                            <h6>Global Training Status</h6>
+                            <div id="globalTrainingStats"></div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <p class="mb-2"><strong>Train all methods with FAISS indexing on complete dataset:</strong></p>
+                                <ul class="mb-3">
+                                    <li>TF-IDF + FAISS with enhanced features (trigrams, better normalization)</li>
+                                    <li>LSA + FAISS with increased components for better representation</li>
+                                    <li>DPR + FAISS with comprehensive context understanding</li>
+                                </ul>
+                                <p class="text-muted">This will process ALL data from AI, ML, DL, CV, and RL datasets for superior performance.</p>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-center">
+                                <button id="trainGlobalButton" class="btn btn-warning w-100 btn-lg">
+                                    <i class="fas fa-cogs"></i> Train Global Models with FAISS
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="loading" id="globalTrainingLoading">
+                            <div class="spinner-border text-warning" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>Training all methods with FAISS indexing on complete dataset... This may take a moment.</p>
+                        </div>
+                        
+                        <div class="alert alert-danger" id="globalTrainingError" style="display: none;"></div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">🔍 Search with Fine-Tuned Retrieval Methods</h5>
+                    </div>
                     <div class="card-body">
                         <div class="row mb-3">
                             <div class="col-md-8">
@@ -220,7 +148,7 @@
                                 <input type="text" id="topicSearch" class="form-control" placeholder="e.g., artificial intelligence, machine learning, computer vision">
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
-                                <button id="searchTopicButton" class="btn btn-primary w-100">Search Authors</button>
+                                <button id="searchTopicButton" class="btn btn-primary w-100" disabled>Search All Fine-Tuned Retrieval Methods</button>
                             </div>
                         </div>
                         
@@ -228,7 +156,7 @@
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Loading...</span>
                             </div>
-                            <p>Searching for top 5 related authors using FAISS index...</p>
+                            <p>Searching using fine-tuned TF-IDF+FAISS, LSA+FAISS, and DPR+FAISS methods...</p>
                         </div>
                         
                         <div class="alert alert-danger" id="topicError" style="display: none;"></div>
@@ -236,74 +164,138 @@
                 </div>
 
                 <div id="topicResults" style="display: none;">
-                    <div class="card">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="card-title mb-0">Top 5 Most Related Authors</h5>
+                    <div class="method-section">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="card-title mb-0">TF-IDF + FAISS Results <span class="faiss-badge">FAISS</span></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <h6>Top Authors</h6>
+                                        <div id="tfidf-authors"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Top Papers</h6>
+                                        <div id="tfidf-papers"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Top Institutions</h6>
+                                        <div id="tfidf-institutions"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <div id="authorsList"></div>
+                    </div>
+
+                    <div class="method-section">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="card-title mb-0">LSA + FAISS Results <span class="faiss-badge">FAISS</span></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <h6>Top Authors</h6>
+                                        <div id="lsa-authors"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Top Papers</h6>
+                                        <div id="lsa-papers"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Top Institutions</h6>
+                                        <div id="lsa-institutions"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="method-section">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="card-title mb-0">DPR + FAISS Results <span class="faiss-badge">FAISS</span></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <h6>Top Authors</h6>
+                                        <div id="dpr-authors"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Top Papers</h6>
+                                        <div id="dpr-papers"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Top Institutions</h6>
+                                        <div id="dpr-institutions"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Case 3: Institution-Topic Ranking -->
             <div class="tab-pane fade" id="case3" role="tabpanel">
                 <div class="case-header">
-                    <h3>Case 3: Institution-Topic Ranking</h3>
-                    <p>Rank institutions by their contribution to a topic based on paper similarity scores.</p>
+                    <h3>Enhanced Institution Ranking</h3>
+                    <p>Analyze institution rankings using ALL available data across 5 fields and 3 topics with enhanced dpr scoring</p>
                 </div>
-                
+
                 <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">Institution Analysis by Topic</h5>
+                    </div>
                     <div class="card-body">
                         <div class="row mb-3">
                             <div class="col-md-8">
-                                <label for="institutionTopic" class="form-label">Topic</label>
-                                <input type="text" id="institutionTopic" class="form-control" placeholder="e.g., artificial intelligence">
+                                <label for="institutionTopic" class="form-label">Topic for Institution Analysis</label>
+                                <input type="text" id="institutionTopic" class="form-control" placeholder="e.g., computer vision, machine learning">
                             </div>
-                            <div class="col-md-2">
-                                <label for="institutionLimit" class="form-label">Max Institutions</label>
-                                <input type="number" id="institutionLimit" class="form-control" value="10" min="1" max="20">
-                            </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button id="analyzeInstitutionButton" class="btn btn-primary w-100">Analyze</button>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button id="analyzeInstitutionsButton" class="btn btn-info w-100">Analyze Institutions</button>
                             </div>
                         </div>
                         
                         <div class="loading" id="institutionLoading">
-                            <div class="spinner-border text-primary" role="status">
+                            <div class="spinner-border text-info" role="status">
                                 <span class="visually-hidden">Loading...</span>
                             </div>
-                            <p>Analyzing institution-topic ranking based on similarity scores...</p>
+                            <p>Analyzing institutions across all fields...</p>
                         </div>
                         
                         <div class="alert alert-danger" id="institutionError" style="display: none;"></div>
-                    </div>
-                </div>
-
-                <div id="institutionResults" style="display: none;">
-                    <div class="chart-container">
-                        <h4>Top Institutions by Topic Contribution</h4>
-                        <canvas id="institutionChart" height="400"></canvas>
-                    </div>
-                    
-                    <div class="card mt-4">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="card-title mb-0">Institution Rankings</h5>
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Rank</th>
-                                        <th>Institution</th>
-                                        <th>Papers</th>
-                                        <th>Citations</th>
-                                        <th>Topic Score</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="institutionRankings"></tbody>
-                            </table>
+                        
+                        <div id="institutionResults" style="display: none;">
+                            <div class="alert alert-success" id="institutionStats">
+                                <h6>Analysis Statistics</h6>
+                                <div id="institutionStatsContent"></div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="card-title mb-0">Institution Rankings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="institutionTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Rank</th>
+                                                    <th>Institution</th>
+                                                    <th>Papers</th>
+                                                    <th>Citations</th>
+                                                    <th>Topic Score</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="institutionTableBody">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -312,772 +304,277 @@
     </div>
 
     <script>
-        // Global variables
-        let chartInstances = {};
-        let currentSearchData = null;
+        let globalModelsTrained = false;
 
-        // Search API function
-        async function searchApi(query, entityType) {
-            // Show loading
-            document.getElementById('searchLoading').style.display = 'block';
-            document.getElementById('searchError').style.display = 'none';
-            document.getElementById('searchResults').innerHTML = '';
-            
-            try {
-                const response = await fetch(`/search?query=${encodeURIComponent(query)}&type=${entityType}`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    currentSearchData = data;
-                    displaySearchResults(data.data, data.concept, entityType, data.total_citations);
-                } else {
-                    throw new Error(data.error || 'Search failed');
-                }
-            } catch (error) {
-                document.getElementById('searchError').textContent = `Error: ${error.message}`;
-                document.getElementById('searchError').style.display = 'block';
-            } finally {
-                document.getElementById('searchLoading').style.display = 'none';
-            }
-        }
+        document.getElementById('trainGlobalButton').addEventListener('click', function() {
+            showLoading('globalTrainingLoading');
+            hideError('globalTrainingError');
+            document.getElementById('globalTrainingStatus').style.display = 'none';
+            this.disabled = true;
 
-        // Display search results
-        function displaySearchResults(results, concept, entityType, totalCitations) {
-            const resultsContainer = document.getElementById('searchResults');
-            resultsContainer.innerHTML = '';
-            
-            if (!results || results.length === 0) {
-                resultsContainer.innerHTML = '<p class="text-muted">No results found.</p>';
-                return;
-            }
-            
-            // Create header
-            const header = document.createElement('h4');
-            let headerText = `Found ${results.length} ${entityType} for <span class="badge bg-primary">${concept.replace('_', ' ')}</span>`;
-            
-            // Add total citations for papers
-            if (entityType === 'papers' && totalCitations) {
-                headerText += ` <span class="badge bg-success">Total Citations: ${totalCitations.toLocaleString()}</span>`;
-            }
-            
-            header.innerHTML = headerText;
-            resultsContainer.appendChild(header);
-            
-            // Create results list
-            const resultsList = document.createElement('div');
-            resultsList.className = 'list-group mt-3';
-            
-            results.forEach((item) => {
-                const resultItem = document.createElement('div');
-                resultItem.className = 'list-group-item';
-                
-                let html = '';
-                const name = item.display_name || item.title || item.name || 'Unknown';
-                
-                if (entityType === 'authors') {
-                    // Generate initials for avatar
-                    const initials = name.split(' ')
-                        .map(n => n[0])
-                        .join('')
-                        .toUpperCase()
-                        .substring(0, 2);
-
-                    html = `
-                        <div class="d-flex">
-                            <div class="flex-shrink-0">
-                                <div class="author-initials bg-secondary text-white rounded-circle">
-                                    ${initials}
+            fetch('/train_global_models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading('globalTrainingLoading');
+                    this.disabled = false;
+                    
+                    if (data.success) {
+                        globalModelsTrained = true;
+                        document.getElementById('searchTopicButton').disabled = false;
+                        
+                        document.getElementById('globalTrainingStatus').style.display = 'block';
+                        document.getElementById('globalTrainingStats').innerHTML = `
+                            <div class="row">
+                                <div class="col-md-3 text-center">
+                                    <h4>${data.stats.total_items_trained}</h4>
+                                    <small>Items Trained</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h4>${data.stats.contexts_processed}</h4>
+                                    <small>Contexts Processed</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h4>3</h4>
+                                    <small>FAISS Indices</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h4>5</h4>
+                                    <small>Concepts Covered</small>
                                 </div>
                             </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h5>${item.name || name}</h5>
-                                <p><strong>Institution:</strong> ${item.institution || "Unknown"}</p>
-                                <p><strong>Total Citations:</strong> ${item.total_citations?.toLocaleString() || 0}</p>
-                                <p><strong>Papers:</strong> ${item.paper_count || 0}</p>
-                    `;
-
-                    if (item.top_3_papers && Array.isArray(item.top_3_papers)) {
-                        html += `<p><strong>Top 3 Papers:</strong></p><ul>`;
-                        item.top_3_papers.forEach(paper => {
-                            html += `
-                                <li>
-                                    <strong>${paper.title}</strong> (${paper.year}) - ${paper.citations} citations
-                                </li>`;
-                        });
-                        html += `</ul>`;
+                            <p class="mt-2 mb-0">${data.stats.training_scope}</p>
+                        `;
+                    } else {
+                        showError('globalTrainingError', data.error);
                     }
-
-                    html += `<p class="text-muted">ID: ${item.id}</p></div></div>`;
-                }
-                else if (entityType === 'papers') {
-                    html = `<h5>${name}</h5>`;
-                    
-                    if (item.authorships && item.authorships.length > 0) {
-                        const authors = item.authorships.map(a => a.author.display_name).join(', ');
-                        html += `<p><strong>Authors:</strong> ${authors}</p>`;
-                    }
-                    
-                    if (item.publication_year || item.year) {
-                        const year = item.publication_year || item.year;
-                        html += `<p><strong>Year:</strong> ${year}</p>`;
-                    }
-                    
-                    if (item.citations || item.cited_by_count) {
-                        const citations = item.citations || item.cited_by_count;
-                        html += `<p><strong>Citations:</strong> ${citations.toLocaleString()}</p>`;
-                    }
-                    
-                    if (item.doi) {
-                        html += `<p><strong>DOI:</strong> <a href="https://doi.org/${item.doi}" target="_blank">${item.doi}</a></p>`;
-                    }
-                    
-                    if (item.abstract) {
-                        const abstract = item.abstract.length > 200 ? item.abstract.substring(0, 200) + '...' : item.abstract;
-                        html += `<p><strong>Abstract:</strong> ${abstract}</p>`;
-                    }
-                }
-                else if (entityType === 'institutions') {
-                    html = `<h5>${name}</h5>`;
-                    
-                    if (item.country_code) {
-                        html += `<p><strong>Country:</strong> ${item.country_code}</p>`;
-                    }
-                    
-                    if (item.works_count) {
-                        html += `<p><strong>Works:</strong> ${item.works_count.toLocaleString()}</p>`;
-                    }
-                    
-                    if (item.cited_by_count) {
-                        html += `<p><strong>Citations:</strong> ${item.cited_by_count.toLocaleString()}</p>`;
-                    }
-                }
-                
-                resultItem.innerHTML = html;
-                resultsList.appendChild(resultItem);
-            });
-            
-            resultsContainer.appendChild(resultsList);
-        }
-
-        // Create comparison chart for Case 1
-        function createComparisonChart(performanceScores) {
-            const ctx = document.getElementById('comparisonChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (chartInstances.comparisonChart) {
-                chartInstances.comparisonChart.destroy();
-            }
-            
-            console.log('Performance scores received:', performanceScores);
-            
-            chartInstances.comparisonChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['TF-IDF', 'LSA', 'DPR'],
-                    datasets: [{
-                        label: 'Average Similarity Score',
-                        data: [
-                            performanceScores?.tfidf || 0.3,
-                            performanceScores?.lsa || 0.35,
-                            performanceScores?.dpr || 0.9
-                        ],
-                        backgroundColor: [
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(255, 206, 86, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(75, 192, 192, 1)',
-                            'rgba(255, 206, 86, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 1.0,
-                            title: {
-                                display: true,
-                                text: 'Similarity Score'
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Method Comparison: Average Similarity Scores'
-                        }
-                    }
-                }
-            });
-        }
-
-        // Display comparison results
-        function displayComparisonResults(data) {
-            // TF-IDF Results
-            const tfidfResults = document.getElementById('tfidfResults');
-            tfidfResults.innerHTML = '';
-            if (data.tfidf_results) {
-                data.tfidf_results.forEach(result => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item';
-                    
-                    // Handle both authors and papers
-                    const displayName = result.name || result.title || 'Unknown';
-                    const additionalInfo = result.works_count ? 
-                        `<small class="text-muted">Works: ${result.works_count}, Citations: ${result.cited_by_count || 0}</small>` :
-                        result.cited_by_count ? 
-                        `<small class="text-muted">Citations: ${result.cited_by_count}</small>` : '';
-                    
-                    li.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span>${displayName}</span>
-                                ${additionalInfo ? `<br>${additionalInfo}` : ''}
-                            </div>
-                            <span class="badge bg-primary rounded-pill">${result.similarity.toFixed(2)}</span>
-                        </div>
-                        <div class="similarity-bar">
-                            <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                        </div>
-                    `;
-                    tfidfResults.appendChild(li);
+                })
+                .catch(error => {
+                    hideLoading('globalTrainingLoading');
+                    this.disabled = false;
+                    showError('globalTrainingError', 'Network error: ' + error.message);
                 });
-            }
+        });
 
-            // LSA Results
-            const lsaResults = document.getElementById('lsaResults');
-            lsaResults.innerHTML = '';
-            if (data.lsa_results) {
-                data.lsa_results.forEach(result => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item';
-                    
-                    // Handle both authors and papers
-                    const displayName = result.name || result.title || 'Unknown';
-                    const additionalInfo = result.works_count ? 
-                        `<small class="text-muted">Works: ${result.works_count}, Citations: ${result.cited_by_count || 0}</small>` :
-                        result.cited_by_count ? 
-                        `<small class="text-muted">Citations: ${result.cited_by_count}</small>` : '';
-                    
-                    li.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span>${displayName}</span>
-                                ${additionalInfo ? `<br>${additionalInfo}` : ''}
-                            </div>
-                            <span class="badge bg-success rounded-pill">${result.similarity.toFixed(2)}</span>
-                        </div>
-                        <div class="similarity-bar">
-                            <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                        </div>
-                    `;
-                    lsaResults.appendChild(li);
-                });
-            }
-
-            // DPR Results
-            const dprResults = document.getElementById('dprResults');
-            dprResults.innerHTML = '';
-            if (data.dpr_results) {
-                data.dpr_results.forEach(result => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item';
-                    
-                    // Handle both authors and papers
-                    const displayName = result.name || result.title || 'Unknown';
-                    const additionalInfo = result.works_count ? 
-                        `<small class="text-muted">Works: ${result.works_count}, Citations: ${result.cited_by_count || 0}</small>` :
-                        result.cited_by_count ? 
-                        `<small class="text-muted">Citations: ${result.cited_by_count}</small>` : '';
-                    
-                    li.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span>${displayName}</span>
-                                ${additionalInfo ? `<br>${additionalInfo}` : ''}
-                            </div>
-                            <span class="badge bg-info rounded-pill">${result.similarity.toFixed(2)}</span>
-                        </div>
-                        <div class="similarity-bar">
-                            <div class="similarity-fill" style="width: ${result.similarity}%"></div>
-                        </div>
-                    `;
-                    dprResults.appendChild(li);
-                });
-            }
-        }
-
-        // Create institution chart for Case 3
-        function createInstitutionChart(chartData) {
-            const ctx = document.getElementById('institutionChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (chartInstances.institutionChart) {
-                chartInstances.institutionChart.destroy();
-            }
-            
-            chartInstances.institutionChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartData.labels,
-                    datasets: [{
-                        label: 'Topic Contribution Score',
-                        data: chartData.scores,
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)',
-                            'rgba(199, 199, 199, 0.8)',
-                            'rgba(83, 102, 255, 0.8)',
-                            'rgba(255, 99, 255, 0.8)',
-                            'rgba(99, 255, 132, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(75, 192, 192, 1)',
-                            'rgba(153, 102, 255, 1)',
-                            'rgba(255, 159, 64, 1)',
-                            'rgba(199, 199, 199, 1)',
-                            'rgba(83, 102, 255, 1)',
-                            'rgba(255, 99, 255, 1)',
-                            'rgba(99, 255, 132, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    indexAxis: 'y',
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            max: 1.0,
-                            title: {
-                                display: true,
-                                text: 'Contribution Score'
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Institution Rankings by Topic Contribution'
-                        }
-                    }
-                }
-            });
-        }
-
-        // Display institution rankings
-        function displayInstitutionRankings(results) {
-            const rankings = document.getElementById('institutionRankings');
-            rankings.innerHTML = '';
-            
-            results.forEach(institution => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${institution.rank}</td>
-                    <td>${institution.name}</td>
-                    <td>${institution.papers.toLocaleString()}</td>
-                    <td>${institution.citations.toLocaleString()}</td>
-                    <td>${institution.score.toFixed(3)}</td>
-                `;
-                rankings.appendChild(row);
-            });
-        }
-
-        // FAISS search function
-        async function searchAuthorsByTopic() {
+        document.getElementById('searchTopicButton').addEventListener('click', function() {
             const topic = document.getElementById('topicSearch').value.trim();
             
             if (!topic) {
-                document.getElementById('topicError').textContent = 'Please enter a topic';
-                document.getElementById('topicError').style.display = 'block';
+                alert('Please enter a topic');
                 return;
             }
-            
-            // Show loading
-            document.getElementById('topicLoading').style.display = 'block';
-            document.getElementById('topicError').style.display = 'none';
-            document.getElementById('topicResults').style.display = 'none';
-            
-            try {
-                const response = await fetch('/search_authors_by_topic', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        topic: topic
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    displayTopicSearchResults(data);
-                } else {
-                    throw new Error(data.error || 'Search failed');
-                }
-            } catch (error) {
-                document.getElementById('topicError').textContent = error.message;
-                document.getElementById('topicError').style.display = 'block';
-            } finally {
-                document.getElementById('topicLoading').style.display = 'none';
+
+            if (!globalModelsTrained) {
+                alert('Please train global models first');
+                return;
             }
+
+            showLoading('topicLoading');
+            hideError('topicError');
+            document.getElementById('topicResults').style.display = 'none';
+
+            fetch('/search_by_topic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic: topic })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading('topicLoading');
+                    if (data.success) {
+                        displayTopicResults(data);
+                    } else {
+                        showError('topicError', data.error);
+                    }
+                })
+                .catch(error => {
+                    hideLoading('topicLoading');
+                    showError('topicError', 'Network error: ' + error.message);
+                });
+        });
+
+        document.getElementById('analyzeInstitutionsButton').addEventListener('click', function() {
+            const topic = document.getElementById('institutionTopic').value.trim();
+            
+            if (!topic) {
+                alert('Please enter a topic for institution analysis');
+                return;
+            }
+
+            showLoading('institutionLoading');
+            hideError('institutionError');
+            document.getElementById('institutionResults').style.display = 'none';
+
+            fetch('/analyze_institutions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic: topic, limit: 20 })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading('institutionLoading');
+                    if (data.success) {
+                        displayInstitutionResults(data);
+                    } else {
+                        showError('institutionError', data.error);
+                    }
+                })
+                .catch(error => {
+                    hideLoading('institutionLoading');
+                    showError('institutionError', 'Network error: ' + error.message);
+                });
+        });
+
+        function showLoading(elementId) {
+            document.getElementById(elementId).style.display = 'block';
         }
 
-        // Display FAISS search results
-        function displayTopicSearchResults(data) {
-            const authorsList = document.getElementById('authorsList');
-            authorsList.innerHTML = '';
+        function hideLoading(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+
+        function showError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function hideError(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+
+        function displayTopicResults(data) {
+            document.getElementById('topicResults').style.display = 'block';
             
-            if (!data.results || data.results.length === 0) {
-                authorsList.innerHTML = '<p>No authors found for this topic.</p>';
-                document.getElementById('topicResults').style.display = 'block';
+            displayMethodResults('tfidf', data.tfidf_results);
+            displayMethodResults('lsa', data.lsa_results);
+            displayMethodResults('dpr', data.dpr_results);
+        }
+
+        function displayMethodResults(method, results) {
+            if (!results || results.error) {
+                document.getElementById(`${method}-authors`).innerHTML = 
+                    `<div class="alert alert-warning">${results.error || 'No results available'}</div>`;
                 return;
             }
             
-            // Create results HTML
-            let html = `
-                <div class="mb-3">
-                    <h6>Search Topic: <span class="text-primary">${data.topic}</span></h6>
-                    <p class="text-muted">Found ${data.results.length} authors from ${data.total_authors_searched} total authors</p>
+            const authors = results.filter(item => item.type === 'author');
+            const papers = results.filter(item => item.type === 'paper');
+            const institutions = results.filter(item => item.type === 'institution');
+            
+            const authorsContainer = document.getElementById(`${method}-authors`);
+            authorsContainer.innerHTML = authors.length ? 
+                authors.map(createAuthorCard).join('') : 
+                '<div class="alert alert-info">No authors found</div>';
+            
+            const papersContainer = document.getElementById(`${method}-papers`);
+            papersContainer.innerHTML = papers.length ? 
+                papers.map(createPaperCard).join('') : 
+                '<div class="alert alert-info">No papers found</div>';
+            
+            const institutionsContainer = document.getElementById(`${method}-institutions`);
+            institutionsContainer.innerHTML = institutions.length ? 
+                institutions.map(createInstitutionCard).join('') : 
+                '<div class="alert alert-info">No institutions found</div>';
+        }
+
+        function createAuthorCard(author) {
+            return `
+                <div class="entity-card">
+                    <h6>${author.name}</h6>
+                    <p>
+                        <strong>Affiliation:</strong> ${author.affiliation}<br>
+                        <strong>Works:</strong> ${author.works_count} | 
+                        <strong>Citations:</strong> ${author.cited_by_count}
+                    </p>
+                    <div class="similarity-bar">
+                        <div class="similarity-fill" style="width: ${author.similarity}%"></div>
+                    </div>
+                    <small class="text-muted">Similarity: ${author.similarity.toFixed(2)}%</small>
                 </div>
             `;
-            
-            data.results.forEach((author, index) => {
-                const percentage = (author.similarity_score * 100).toFixed(1);
-                const progressWidth = Math.max(percentage, 5); // Minimum 5% for visibility
-                
-                html += `
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-md-1">
-                                    <div class="badge bg-primary fs-6">${author.rank}</div>
-                                </div>
-                                <div class="col-md-8">
-                                    <h5 class="card-title mb-1">${author.name}</h5>
-                                    <p class="card-text mb-1">
-                                        <strong>Concept:</strong> <span class="badge bg-secondary">${author.concept}</span>
-                                        ${author.affiliation ? `<br><strong>Affiliation:</strong> ${author.affiliation}` : ''}
-                                    </p>
-                                    <p class="card-text text-muted">
-                                        <strong>Works:</strong> ${author.works_count.toLocaleString()} | 
-                                        <strong>Citations:</strong> ${author.cited_by_count.toLocaleString()}
-                                    </p>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="text-center">
-                                        <h4 class="text-success mb-1">${percentage}%</h4>
-                                        <div class="progress" style="height: 8px;">
-                                            <div class="progress-bar bg-success" role="progressbar" 
-                                                 style="width: ${progressWidth}%" 
-                                                 aria-valuenow="${percentage}" 
-                                                 aria-valuemin="0" 
-                                                 aria-valuemax="100">
-                                            </div>
-                                        </div>
-                                        <small class="text-muted">Similarity Score</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            authorsList.innerHTML = html;
-            document.getElementById('topicResults').style.display = 'block';
         }
 
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            // Search functionality
-            const searchButton = document.getElementById('searchButton');
-            searchButton.addEventListener('click', function() {
-                const query = document.getElementById('searchQuery').value.trim();
-                const entityType = document.getElementById('entityType').value;
-                
-                if (!query) {
-                    document.getElementById('searchError').textContent = 'Please enter a search query';
-                    document.getElementById('searchError').style.display = 'block';
-                    return;
-                }
-                
-                searchApi(query, entityType);
-            });
+        function createPaperCard(paper) {
+            return `
+                <div class="entity-card">
+                    <h6>${paper.title}</h6>
+                    <p>
+                        <strong>Year:</strong> ${paper.year}<br>
+                        <strong>Citations:</strong> ${paper.citations}
+                    </p>
+                    <div class="similarity-bar">
+                        <div class="similarity-fill" style="width: ${paper.similarity}%"></div>
+                    </div>
+                    <small class="text-muted">Similarity: ${paper.similarity.toFixed(2)}%</small>
+                </div>
+            `;
+        }
 
-            // Train models functionality
-            const trainButton = document.getElementById('trainButton');
-            trainButton.addEventListener('click', async function() {
-                const baseQuery = document.getElementById('modelQuery').value.trim();
-                
-                if (!baseQuery) {
-                    document.getElementById('modelError').textContent = 'Please enter a base query for training';
-                    document.getElementById('modelError').style.display = 'block';
-                    return;
-                }
-                
-                // Show loading
-                document.getElementById('modelLoading').style.display = 'block';
-                document.getElementById('modelError').style.display = 'none';
-                
-                try {
-                    const response = await fetch('/train', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            base_query: baseQuery
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Show success message
-                        document.getElementById('modelStats').innerHTML = `
-                            <p><strong>Models trained for concept:</strong> ${baseQuery}</p>
-                            <p><strong>Contexts processed:</strong> ${data.stats.contexts_processed}</p>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <span class="badge bg-success">TF-IDF: Ready</span>
-                                </div>
-                                <div class="col-md-4">
-                                    <span class="badge bg-success">LSA: Ready</span>
-                                </div>
-                                <div class="col-md-4">
-                                    <span class="badge bg-success">DPR: Ready</span>
-                                </div>
-                            </div>
-                            <p class="mt-2"><small>Training completed at: ${new Date().toLocaleTimeString()}</small></p>
-                        `;
-                        document.getElementById('modelResults').style.display = 'block';
-                        document.getElementById('compareButton').disabled = false;
-                    } else {
-                        throw new Error(data.error || 'Training failed');
-                    }
-                } catch (error) {
-                    document.getElementById('modelError').textContent = `Error: ${error.message}`;
-                    document.getElementById('modelError').style.display = 'block';
-                } finally {
-                    document.getElementById('modelLoading').style.display = 'none';
-                }
-            });
+        function createInstitutionCard(institution) {
+            return `
+                <div class="entity-card">
+                    <h6>${institution.name}</h6>
+                    <p>
+                        <strong>Country:</strong> ${institution.country}<br>
+                        <strong>Score:</strong> ${institution.score}
+                    </p>
+                    <div class="similarity-bar">
+                        <div class="similarity-fill" style="width: ${institution.similarity}%"></div>
+                    </div>
+                    <small class="text-muted">Similarity: ${institution.similarity.toFixed(2)}%</small>
+                </div>
+            `;
+        }
 
-            // Compare methods functionality
-            const compareButton = document.getElementById('compareButton');
-            compareButton.addEventListener('click', async function() {
-                const testQuery = document.getElementById('testQuery').value.trim();
-                
-                if (!testQuery) {
-                    document.getElementById('modelError').textContent = 'Please enter a test query for comparison';
-                    document.getElementById('modelError').style.display = 'block';
-                    return;
-                }
-                
-                // Show loading
-                document.getElementById('compareLoading').style.display = 'block';
-                document.getElementById('modelError').style.display = 'none';
-                
-                try {
-                    const response = await fetch('/compare', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            test_query: testQuery
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Display results
-                        displayComparisonResults(data);
-                        
-                        // Show chart and results
-                        document.querySelector('.chart-container').style.display = 'block';
-                        document.getElementById('methodResults').style.display = 'block';
-                        
-                        // Create comparison chart
-                        if (data.performance_scores) {
-                            createComparisonChart(data.performance_scores);
-                        }
-                    } else {
-                        throw new Error(data.error || 'Comparison failed');
-                    }
-                } catch (error) {
-                    document.getElementById('modelError').textContent = `Error: ${error.message}`;
-                    document.getElementById('modelError').style.display = 'block';
-                } finally {
-                    document.getElementById('compareLoading').style.display = 'none';
-                }
-            });
+        function displayInstitutionResults(data) {
+            document.getElementById('institutionResults').style.display = 'block';
+            document.getElementById('institutionStatsContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <h5>${data.total_institutions}</h5>
+                        <small>Total Institutions</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h5>${data.total_authors_analyzed}</h5>
+                        <small>Authors Analyzed</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h5>${data.concepts_analyzed.length}</h5>
+                        <small>Concepts Covered</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h5>${data.topic}</h5>
+                        <small>Topic</small>
+                    </div>
+                </div>
+            `;
 
-            // Case 2: FAISS search
-            document.getElementById('searchTopicButton').addEventListener('click', searchAuthorsByTopic);
-
-            // Case 3: Institution analysis
-            const analyzeInstitutionButton = document.getElementById('analyzeInstitutionButton');
-            analyzeInstitutionButton.addEventListener('click', async function() {
-                const topic = document.getElementById('institutionTopic').value.trim();
-                const limit = parseInt(document.getElementById('institutionLimit').value) || 10;
-                
-                if (!topic) {
-                    document.getElementById('institutionError').textContent = 'Please enter a topic';
-                    document.getElementById('institutionError').style.display = 'block';
-                    return;
-                }
-                
-                // Show loading
-                document.getElementById('institutionLoading').style.display = 'block';
-                document.getElementById('institutionError').style.display = 'none';
-                document.getElementById('institutionResults').style.display = 'none';
-                
-                try {
-                    // First, get the search data from Case 1 for the topic
-                    const searchResponse = await fetch(`/search?query=${encodeURIComponent(topic)}&type=authors`);
-                    const searchData = await searchResponse.json();
-                    
-                    if (!searchData.success || !searchData.data || searchData.data.length === 0) {
-                        throw new Error('No search data available. Please perform a search in Case 1 first.');
-                    }
-                    
-                    // Extract and rank institutions from the author data
-                    const institutionStats = {};
-                    
-                    searchData.data.forEach(author => {
-                        if (author && typeof author === 'object') {
-                            // Extract institution information with better field mapping
-                            let institutionName = author.institution || 
-                                                author.affiliation || 
-                                                author.last_known_institution ||
-                                                (author.affiliations && author.affiliations[0] && author.affiliations[0].institution && author.affiliations[0].institution.display_name) ||
-                                                'Unknown Institution';
-                            
-                            if (institutionName && institutionName !== 'Unknown Institution') {
-                                // Clean institution name
-                                institutionName = institutionName.trim();
-                                
-                                if (!institutionStats[institutionName]) {
-                                    institutionStats[institutionName] = {
-                                        name: institutionName,
-                                        authors: [],
-                                        totalPapers: 0,
-                                        totalCitations: 0
-                                    };
-                                }
-                                
-                                // Add author data with better field mapping
-                                institutionStats[institutionName].authors.push(author);
-                                
-                                // Extract papers count with multiple field options
-                                const paperCount = author.works_count || 
-                                                 author.paper_count || 
-                                                 author.total_papers || 
-                                                 author.cv_papers || 
-                                                 0;
-                                
-                                // Extract citations count with multiple field options
-                                const citationCount = author.cited_by_count || 
-                                                    author.total_citations || 
-                                                    author.citations || 
-                                                    0;
-                                
-                                institutionStats[institutionName].totalPapers += paperCount;
-                                institutionStats[institutionName].totalCitations += citationCount;
-                            }
-                        }
-                    });
-                    
-                    // Calculate contribution scores and create rankings
-                    const institutions = Object.values(institutionStats).map(inst => {
-                        const authorCount = inst.authors.length;
-                        const avgPapersPerAuthor = inst.totalPapers / authorCount;
-                        const avgCitationsPerAuthor = inst.totalCitations / authorCount;
-                        
-                        // Calculate contribution score (0-1 range)
-                        const authorScore = Math.min(authorCount / 10, 1.0); // Max 10 authors = 1.0
-                        const paperScore = Math.min(avgPapersPerAuthor / 100, 1.0); // Max 100 avg papers = 1.0
-                        const citationScore = Math.min(avgCitationsPerAuthor / 10000, 1.0); // Max 10k avg citations = 1.0
-                        
-                        // Weighted combination
-                        const score = (authorScore * 0.3 + paperScore * 0.4 + citationScore * 0.3);
-                        
-                        return {
-                            rank: 0, // Will be set after sorting
-                            name: inst.name,
-                            papers: inst.totalPapers,
-                            citations: inst.totalCitations,
-                            authors: authorCount,
-                            score: parseFloat(score.toFixed(3))
-                        };
-                    });
-                    
-                    // Sort by score and assign ranks
-                    institutions.sort((a, b) => b.score - a.score);
-                    institutions.forEach((inst, index) => {
-                        inst.rank = index + 1;
-                    });
-                    
-                    // Limit results
-                    const limitedInstitutions = institutions.slice(0, limit);
-                    
-                    if (limitedInstitutions.length === 0) {
-                        throw new Error('No institutions found in the search data.');
-                    }
-                    
-                    // Create chart data (limit chart to top 20 for readability)
-                    const chartLimit = Math.min(limitedInstitutions.length, 20);
-                    const chartData = {
-                        labels: limitedInstitutions.slice(0, chartLimit).map(inst => 
-                            inst.name.length > 30 ? inst.name.substring(0, 30) + '...' : inst.name
-                        ),
-                        scores: limitedInstitutions.slice(0, chartLimit).map(inst => inst.score)
-                    };
-                    
-                    // Display results
-                    createInstitutionChart(chartData);
-                    displayInstitutionRankings(limitedInstitutions);
-                    
-                    document.getElementById('institutionResults').style.display = 'block';
-                    
-                } catch (error) {
-                    console.error('Institution analysis error:', error);
-                    document.getElementById('institutionError').textContent = error.message;
-                    document.getElementById('institutionError').style.display = 'block';
-                } finally {
-                    document.getElementById('institutionLoading').style.display = 'none';
-                }
-            });
-
-            document.getElementById('searchQuery').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    document.getElementById('searchButton').click();
-                }
-            });
+            const tableBody = document.getElementById('institutionTableBody');
+            tableBody.innerHTML = '';
             
-            document.getElementById('topicSearch').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    searchAuthorsByTopic();
-                }
+            data.institutions.forEach(inst => {
+                const row = document.createElement('tr');
+                
+                const conceptBadges = inst.concepts.map(concept => 
+                    `<span class="badge bg-secondary concept-badge">${concept}</span>`
+                ).join('');
+                
+                row.innerHTML = `
+                    <td><span class="badge bg-primary">${inst.rank}</span></td>
+                    <td>
+                        ${inst.name}<br>
+                        ${conceptBadges}
+                    </td>
+                    <td>${inst.papers.toLocaleString()}</td>
+                    <td>${inst.citations.toLocaleString()}</td>
+                    <td>${inst.score.toFixed(3)}</td>
+                `;
+                tableBody.appendChild(row);
             });
-        });
+        }
     </script>
 </body>
 </html>
