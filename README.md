@@ -40,22 +40,6 @@ F --> I[Reinforcement Learning]
 F --> J[Computer Vision]
 F --> K[Artificial Intelligence]
 ```
-
-2. **Interactive Demo Engine Pipeline**
-```mermaid
-graph TD
-W[Web Interface] --> A
-A[Flask App] --> B[Case 1]
-A --> C[Case 2]
-A --> D[Case 3]
-B --> E[Search Authors/Papers/Institutions]
-B --> F[Train Models]
-B --> G[Compare Methods]
-C --> H[FAISS Author Search]
-D --> I[Institution Ranking]
-```
-The demo is built in **Python** with a frontend in index.html using embedded JavaScript for interaction.
-
 ---
 
 ## Demo Engine Architecture
