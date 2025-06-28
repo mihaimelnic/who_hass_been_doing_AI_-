@@ -12,6 +12,17 @@ app = Flask(__name__, static_folder='.')
 
 question_encoder = None
 context_encoder = None
+global_trained_models = {}
+faiss_indices = {'tfidf': None, 'lsa': None, 'dpr': None}
+faiss_data = []
+
+ESTABLISHED_FIELDS = [
+    'artificial intelligence', 
+    'machine learning',
+    'deep learning',
+    'computer vision',
+    'reinforcement learning'
+]
 
 def load_dpr_models():
     """Lazy load DPR models only when needed"""
@@ -27,833 +38,442 @@ def load_dpr_models():
             return False
     return True
 
-current_search_data = []
-trained_models = {}
+def generate_author_context(author):
+    """Generate context string for author"""
+    name = author.get('display_name') or author.get('name', '')
+    concept = author.get('source_concept', '')
+    affiliation = author.get('affiliation', '') or author.get('institution', '')
+    works = author.get('works_count', 0) or author.get('paper_count', 0) or author.get('total_papers', 0)
+    citations = author.get('cited_by_count', 0) or author.get('total_citations', 0)
+    return f"Author: {name}. Research field: {concept}. Affiliation: {affiliation}. Works: {works}. Citations: {citations}. Keywords: {concept}, artificial intelligence, machine learning, research, {name}."
 
-# FAISS index for Case 2
-faiss_index = None
-faiss_authors = []
-faiss_embeddings = None
+def load_json_file(file_path):
+    """Load JSON file with proper encoding handling"""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f'File not found: {file_path}')
+    for encoding in ['utf-8', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return json.load(f)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+    raise Exception(f'Could not decode file: {file_path}')
 
-def initialize_faiss_index():
-    """Initialize FAISS index with author data from top_authors_concept folder ONLY"""
-    global faiss_index, faiss_authors, faiss_embeddings
-    
+def load_all_data_for_training():
+    """Load ALL data (authors, papers, institutions) from all concepts"""
     try:
-        print("Initializing FAISS index from top_authors_concept...")
+        print("Loading ALL data from all concepts for training...")
+        all_data = []
         
-        # Load sentence transformer for embeddings
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-        
-        # Load ONLY from top_authors_concept folder
-        file_mapping = {
-            'artificial_intelligence': 'top_ai_authors_with_papers.json',
-            'machine_learning': 'top_ml_authors.json',
-            'deep_learning': 'top_dl_authors_with_papers.json',
-            'computer_vision': 'top_cv_authors.json',
-            'reinforcement_learning': 'top_rl_authors_with_papers.json'
+        author_files = [
+            'top_ai_authors_with_papers.json',
+            'top_cv_authors.json',
+            'top_dl_authors_with_papers.json',
+            'top_ml_authors.json',
+            'top_rl_authors_with_papers.json'
+        ]
+        concept_mapping = {
+            'top_ai_authors_with_papers.json': 'artificial_intelligence',
+            'top_cv_authors.json': 'computer_vision',
+            'top_dl_authors_with_papers.json': 'deep_learning',
+            'top_ml_authors.json': 'machine_learning',
+            'top_rl_authors_with_papers.json': 'reinforcement_learning'
         }
         
-        all_authors = []
-        
-        for concept, filename in file_mapping.items():
+        for filename in author_files:
             try:
                 file_path = os.path.join('searching_codes', 'top_authors_concept', filename)
                 if os.path.exists(file_path):
                     authors_data = load_json_file(file_path)
-                    
-                    # Handle different JSON structures
+                    concept = concept_mapping[filename]
                     if isinstance(authors_data, dict) and "authors" in authors_data:
                         authors_data = authors_data["authors"]
-                    
                     if isinstance(authors_data, list):
-                        # Take top 100 authors per concept for speed
-                        limited_authors = authors_data[:100]
-                        for author in limited_authors:
+                        for author in authors_data:
                             if isinstance(author, dict):
-                                author['concept'] = concept
-                                all_authors.append(author)
-                        print(f"Loaded {len(limited_authors)} authors from {concept}")
-                    
+                                author['source_concept'] = concept
+                                author['data_type'] = 'author'
+                                all_data.append(author)
             except Exception as e:
-                print(f"Error loading {concept}: {e}")
-                continue
+                print(f"Error loading authors from {filename}: {e}")
         
-        if not all_authors:
-            print("No authors found in top_authors_concept folder")
+        paper_files = [
+            'artificial_intelligence.json',
+            'computer_vision.json',
+            'deep_learning.json',
+            'machine_learning.json',
+            'reinforcement_learning.json'
+        ]
+        for filename in paper_files:
+            try:
+                file_path = os.path.join('searching_codes', 'papers_by_concept', filename)
+                if os.path.exists(file_path):
+                    papers_data = load_json_file(file_path)
+                    concept = filename.replace('.json', '')
+                    if isinstance(papers_data, list):
+                        for paper in papers_data:
+                            if isinstance(paper, dict):
+                                paper['source_concept'] = concept
+                                paper['data_type'] = 'paper'
+                                all_data.append(paper)
+            except Exception as e:
+                print(f"Error loading papers from {filename}: {e}")
+        
+        institution_files = [
+            'artificial_intelligence.json',
+            'computer_vision.json',
+            'deep_learning.json',
+            'machine_learning.json',
+            'reinforcement_learning.json'
+        ]
+        for filename in institution_files:
+            try:
+                file_path = os.path.join('searching_codes', 'institutions_by_domain', filename)
+                if os.path.exists(file_path):
+                    institutions_data = load_json_file(file_path)
+                    concept = filename.replace('.json', '')
+                    if isinstance(institutions_data, list):
+                        for inst in institutions_data:
+                            if isinstance(inst, list) and len(inst) >= 2:
+                                institution = {
+                                    'name': str(inst[0]),
+                                    'score': inst[1] if len(inst) > 1 else 0,
+                                    'source_concept': concept,
+                                    'data_type': 'institution'
+                                }
+                                all_data.append(institution)
+                            elif isinstance(inst, dict):
+                                inst['source_concept'] = concept
+                                inst['data_type'] = 'institution'
+                                all_data.append(inst)
+            except Exception as e:
+                print(f"Error loading institutions from {filename}: {e}")
+        
+        print(f"Total data loaded: {len(all_data)} items")
+        return all_data
+    except Exception as e:
+        print(f"Error loading all data: {e}")
+        return []
+
+def train_global_models():
+    """Train all models on ALL available data with FAISS indexing"""
+    global global_trained_models, faiss_indices, faiss_data
+    try:
+        print("Training global models with FAISS indexing on ALL available data...")
+        all_data = load_all_data_for_training()
+        if not all_data:
+            print("No data available for training")
             return False
         
-        print(f"Processing {len(all_authors)} top authors for FAISS index...")
+        faiss_data = all_data
+        contexts = []
+        metadata = []
         
-        # Create text representations for authors
-        author_texts = []
-        for author in all_authors:
-            name = author.get('display_name') or author.get('name', '')
-            concept = author.get('concept', '')
-            affiliation = author.get('affiliation', '') or author.get('institution', '')
+        for item in all_data:
+            context = ""
+            if item.get('data_type') == 'author':
+                context = generate_author_context(item)
+            elif item.get('data_type') == 'paper':
+                title = item.get('title', '')
+                abstract = item.get('abstract', '') or item.get('summary', '')
+                year = item.get('year', '') or item.get('publication_year', '')
+                citations = item.get('cited_by_count', 0) or item.get('citations', 0)
+                concepts = ", ".join(item.get('concepts', [])) or item.get('source_concept', '')
+                context = f"Paper: {title}. Abstract: {abstract}. Year: {year}. Citations: {citations}. Concepts: {concepts}."
+            elif item.get('data_type') == 'institution':
+                name = item.get('name', '') or item.get('display_name', '')
+                country = item.get('country', '') or item.get('country_code', '')
+                score = item.get('score', 0) or item.get('institution_score', 0)
+                concepts = ", ".join(item.get('concepts', [])) or item.get('source_concept', '')
+                context = f"Institution: {name}. Country: {country}. Score: {score}. Concepts: {concepts}."
             
-            # Create focused text representation
-            text = f"{name} {concept} researcher"
-            if affiliation:
-                text += f" {affiliation}"
-            text += " artificial intelligence machine learning"
-            
-            author_texts.append(text)
+            if context:
+                contexts.append(context)
+                metadata.append({
+                    'type': item.get('data_type', 'unknown'),
+                    'item': item
+                })
         
-        # Generate embeddings efficiently
-        print("Generating embeddings...")
-        embeddings = model.encode(author_texts, convert_to_tensor=False, show_progress_bar=False)
+        if not contexts:
+            print("No valid contexts created for training")
+            return False
         
-        # Create FAISS index
-        dimension = embeddings.shape[1]
-        index = faiss.IndexFlatIP(dimension)  # Inner product for cosine similarity
+        print(f"Training on {len(contexts)} contexts...")
         
-        # Normalize embeddings for cosine similarity
-        faiss.normalize_L2(embeddings)
-        index.add(embeddings.astype('float32'))
+        print("Training TF-IDF + FAISS...")
+        tfidf_vectorizer = TfidfVectorizer(
+            max_features=1000,
+            stop_words='english',
+            ngram_range=(1, 3),
+            min_df=2,
+            max_df=0.9,
+            sublinear_tf=True
+        )
+        tfidf_matrix = tfidf_vectorizer.fit_transform(contexts)
+        tfidf_dense = tfidf_matrix.toarray().astype('float32')
+        faiss.normalize_L2(tfidf_dense)
+        tfidf_index = faiss.IndexFlatIP(tfidf_dense.shape[1])
+        tfidf_index.add(tfidf_dense)
+        faiss_indices['tfidf'] = tfidf_index
         
-        faiss_index = index
-        faiss_authors = all_authors
-        faiss_embeddings = embeddings
+        print("Training LSA + FAISS...")
+        lsa_model = TruncatedSVD(n_components=100, random_state=42)
+        lsa_matrix = lsa_model.fit_transform(tfidf_matrix)
+        lsa_dense = lsa_matrix.astype('float32')
+        faiss.normalize_L2(lsa_dense)
+        lsa_index = faiss.IndexFlatIP(lsa_dense.shape[1])
+        lsa_index.add(lsa_dense)
+        faiss_indices['lsa'] = lsa_index
         
-        print(f"FAISS index initialized with {len(all_authors)} authors")
+        print("Training DPR + FAISS...")
+        try:
+            dpr_model = SentenceTransformer('all-MiniLM-L6-v2')
+            dpr_embeddings = dpr_model.encode(contexts, convert_to_tensor=False, show_progress_bar=False)
+            dpr_dense = dpr_embeddings.astype('float32')
+            faiss.normalize_L2(dpr_dense)
+            dpr_index = faiss.IndexFlatIP(dpr_dense.shape[1])
+            dpr_index.add(dpr_dense)
+            faiss_indices['dpr'] = dpr_index
+            dpr_success = True
+        except Exception as e:
+            print(f"DPR training failed: {e}")
+            dpr_success = False
+        
+        global_trained_models = {
+            'contexts': contexts,
+            'metadata': metadata,
+            'tfidf_vectorizer': tfidf_vectorizer,
+            'lsa_model': lsa_model,
+            'dpr_model': dpr_model if dpr_success else None,
+            'dpr_available': dpr_success,
+            'trained_on_all_data': True,
+            'total_items': len(all_data)
+        }
+        
+        print("Global training completed successfully!")
         return True
-        
     except Exception as e:
-        print(f"Error initializing FAISS index: {e}")
+        print(f"Global training error: {e}")
         return False
 
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/search', methods=['GET'])
-def search():
-    global current_search_data
-    query = request.args.get('query', '').lower().strip()
-    entity_type = request.args.get('type', 'authors')
-    
-    if not query:
-        return jsonify({'error': 'Query parameter is required'}), 400
-    
-    concept = determine_concept(query)
-    
-    try:
-        if entity_type == 'authors':
-            result = get_authors_data(concept)
-        elif entity_type == 'papers':
-            result = get_papers_data(concept)
-        elif entity_type == 'institutions':
-            result = get_institutions_data(concept)
-        else:
-            return jsonify({'error': 'Invalid entity type. Use: authors, papers, or institutions'}), 400
-        
-        if hasattr(result, 'get_json'):
-            result_data = result.get_json()
-            if result_data.get('success'):
-                current_search_data = result_data.get('data', [])
-        
-        return result
-    except Exception as e:
-        app.logger.error(f'Search error: {str(e)}')
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+@app.route('/train_global_models', methods=['POST'])
+def train_global_models_endpoint():
+    success = train_global_models()
+    if success:
+        return jsonify({
+            'success': True,
+            'message': 'Global models trained successfully with FAISS indexing'
+        })
+    else:
+        return jsonify({'error': 'Failed to train global models'}), 500
 
-@app.route('/search_authors_by_topic', methods=['POST'])
-def search_authors_by_topic():
-    """FAISS-based search for top 5 most related authors to a given topic"""
-    global faiss_index, faiss_authors
-    
+@app.route('/search_by_topic', methods=['POST'])
+def search_by_topic():
+    global global_trained_models, faiss_indices, faiss_data
     try:
         data = request.get_json()
         topic = data.get('topic', '').strip()
-        
         if not topic:
             return jsonify({'error': 'Topic is required'}), 400
         
-        # Initialize FAISS index if not already done
-        if faiss_index is None:
-            if not initialize_faiss_index():
-                return jsonify({'error': 'Failed to initialize FAISS index'}), 500
+        if not global_trained_models:
+            return jsonify({'error': 'Global models not trained. Please train models first.'}), 400
         
-        # Load sentence transformer for query encoding
-        model = SentenceTransformer('all-MiniLM-L6-v2')
+        enhanced_query = f"{topic} research artificial intelligence machine learning"
+        results = {'success': True, 'topic': topic}
         
-        # Create enhanced query
-        enhanced_topic = f"{topic} artificial intelligence machine learning research"
-        
-        # Generate query embedding
-        query_embedding = model.encode([enhanced_topic], convert_to_tensor=False)
-        faiss.normalize_L2(query_embedding)
-        
-        # Search FAISS index for top 5 similar authors
-        scores, indices = faiss_index.search(query_embedding.astype('float32'), 5)
-        
-        # Prepare results
-        results = []
-        for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if idx < len(faiss_authors):
-                author = faiss_authors[idx]
-                name = author.get('display_name') or author.get('name', '')
-                affiliation = author.get('affiliation', '') or author.get('institution', '')
-                concept = author.get('concept', '')
-                works = author.get('works_count', 0) or author.get('paper_count', 0)
-                citations = author.get('cited_by_count', 0) or author.get('total_citations', 0)
+        def search_method(method_name, query_vector, index, top_k=5):
+            try:
+                if isinstance(query_vector, np.ndarray):
+                    query_dense = query_vector.reshape(1, -1).astype('float32')
+                else:
+                    query_dense = query_vector.toarray().astype('float32')
                 
-                results.append({
-                    'rank': i + 1,
-                    'name': name,
-                    'affiliation': affiliation,
-                    'concept': concept,
-                    'works_count': works,
-                    'cited_by_count': citations,
-                    'similarity_score': float(score),
-                    'percentage': float(score * 100)
-                })
+                norm = np.linalg.norm(query_dense)
+                if norm > 0:
+                    query_dense /= norm
+                else:
+                    return {"error": "Zero query vector"}
+                
+                similarities, indices = index.search(query_dense, top_k)
+                method_results = []
+                
+                for sim, idx in zip(similarities[0], indices[0]):
+                    if idx < len(faiss_data):
+                        item = faiss_data[idx]
+                        result_item = {
+                            'type': item.get('data_type', 'unknown'),
+                            'similarity': float(sim * 100)
+                        }
+                        
+                        if result_item['type'] == 'author':
+                            result_item.update({
+                                'name': item.get('display_name') or item.get('name', ''),
+                                'affiliation': item.get('affiliation', '') or item.get('institution', ''),
+                                'concept': item.get('source_concept', ''),
+                                'works_count': item.get('works_count', 0) or item.get('paper_count', 0),
+                                'cited_by_count': item.get('cited_by_count', 0) or item.get('total_citations', 0)
+                            })
+                        elif result_item['type'] == 'paper':
+                            result_item.update({
+                                'title': item.get('title', ''),
+                                'year': item.get('year', '') or item.get('publication_year', ''),
+                                'citations': item.get('cited_by_count', 0) or item.get('citations', 0),
+                                'concepts': item.get('concepts', []) or [item.get('source_concept', '')]
+                            })
+                        elif result_item['type'] == 'institution':
+                            result_item.update({
+                                'name': item.get('name', '') or item.get('display_name', ''),
+                                'country': item.get('country', '') or item.get('country_code', ''),
+                                'score': item.get('score', 0) or item.get('institution_score', 0),
+                                'concepts': [item.get('source_concept', '')]
+                            })
+                        
+                        method_results.append(result_item)
+                
+                return method_results
+            except Exception as e:
+                return {"error": str(e)}
+        
+        if faiss_indices['tfidf'] is not None:
+            query_tfidf = global_trained_models['tfidf_vectorizer'].transform([enhanced_query])
+            results['tfidf_results'] = search_method('tfidf', query_tfidf, faiss_indices['tfidf'])
+        
+        if faiss_indices['lsa'] is not None:
+            query_tfidf = global_trained_models['tfidf_vectorizer'].transform([enhanced_query])
+            query_lsa = global_trained_models['lsa_model'].transform(query_tfidf)
+            results['lsa_results'] = search_method('lsa', query_lsa, faiss_indices['lsa'])
+        
+        if faiss_indices['dpr'] is not None and global_trained_models['dpr_available']:
+            query_embedding = global_trained_models['dpr_model'].encode([enhanced_query], convert_to_tensor=False)
+            results['dpr_results'] = search_method('dpr', query_embedding, faiss_indices['dpr'])
+        
+        results['total_items_searched'] = len(faiss_data)
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': f'Search error: {str(e)}'}), 500
+
+@app.route('/analyze_institutions', methods=['POST'])
+def analyze_institutions():
+    global global_trained_models
+    try:
+        data = request.get_json()
+        topic = data.get('topic', '').strip()
+        limit = data.get('limit', 10)
+        if not topic:
+            return jsonify({'error': 'Topic is required'}), 400
+        
+        if not global_trained_models or not global_trained_models.get('dpr_available'):
+            return jsonify({'error': 'DPR model not available. Train global models first.'}), 400
+        
+        all_data = load_all_data_for_training()
+        if not all_data:
+            return jsonify({'error': 'No data available'}), 404
+        
+        all_authors = [item for item in all_data if item.get('data_type') == 'author']
+        if not all_authors:
+            return jsonify({'error': 'No author data available'}), 404
+        
+        dpr_model = global_trained_models['dpr_model']
+        topic_embedding = dpr_model.encode([topic], convert_to_tensor=False)[0]
+        topic_embedding_norm = topic_embedding / np.linalg.norm(topic_embedding)
+        
+        institution_stats = {}
+        all_concepts = set()
+        max_papers = 0
+        
+        for author in all_authors:
+            concept = author.get('source_concept', '')
+            if concept:
+                all_concepts.add(concept)
+            
+            institution_name = (author.get('institution') or 
+                              author.get('affiliation') or 
+                              author.get('last_known_institution') or 
+                              (author.get('affiliations') and author['affiliations'][0] and 
+                               author['affiliations'][0].get('institution') and 
+                               author['affiliations'][0]['institution'].get('display_name')) or 
+                              'Unknown Institution').strip()
+            
+            if institution_name == 'Unknown Institution':
+                continue
+            
+            if institution_name not in institution_stats:
+                institution_stats[institution_name] = {
+                    'name': institution_name,
+                    'authors': [],
+                    'total_papers': 0,
+                    'total_citations': 0,
+                    'author_contexts': []
+                }
+            
+            institution_stats[institution_name]['authors'].append(author)
+            paper_count = (author.get('works_count') or 
+                          author.get('paper_count') or 
+                          author.get('total_papers') or 0)
+            citation_count = (author.get('cited_by_count') or 
+                             author.get('total_citations') or 
+                             author.get('citations') or 0)
+            
+            institution_stats[institution_name]['total_papers'] += paper_count
+            institution_stats[institution_name]['total_citations'] += citation_count
+            institution_stats[institution_name]['author_contexts'].append(generate_author_context(author))
+            
+            if institution_stats[institution_name]['total_papers'] > max_papers:
+                max_papers = institution_stats[institution_name]['total_papers']
+        
+        institutions = []
+        for inst_name, inst_data in institution_stats.items():
+
+            if not inst_data['author_contexts']:
+                continue
+                
+            author_embeddings = dpr_model.encode(inst_data['author_contexts'], convert_to_tensor=False)
+            author_embeddings_norm = author_embeddings / np.linalg.norm(author_embeddings, axis=1, keepdims=True)
+            
+            similarities = np.dot(author_embeddings_norm, topic_embedding_norm)
+            similarities = np.maximum(similarities, 0)  # Clip negative values
+            s_sim = float(np.mean(similarities))
+            
+            s_impact = min(inst_data['total_citations'] / 10000.0, 1.0)
+            s_prod = inst_data['total_papers'] / max_papers if max_papers > 0 else 0
+            
+            t_value = 0.5 if topic.lower() in [f.lower() for f in ESTABLISHED_FIELDS] else 0.2
+            
+            score = (s_sim * t_value) + s_impact + s_prod
+            
+            institutions.append({
+                'name': inst_name,
+                'papers': inst_data['total_papers'],
+                'citations': inst_data['total_citations'],
+                'authors': len(inst_data['authors']),
+                'concepts': list(set(a.get('source_concept', '') for a in inst_data['authors'])),
+                's_sim': s_sim,
+                's_impact': s_impact,
+                's_prod': s_prod,
+                't_value': t_value,
+                'score': float(score)
+            })
+        
+        institutions.sort(key=lambda x: x['score'], reverse=True)
+        for i, inst in enumerate(institutions):
+            inst['rank'] = i + 1
         
         return jsonify({
             'success': True,
             'topic': topic,
-            'results': results,
-            'total_authors_searched': len(faiss_authors)
+            'institutions': institutions[:limit],
+            'total_institutions': len(institutions),
+            'total_authors_analyzed': len(all_authors),
+            'concepts_analyzed': list(all_concepts),
+            'max_papers': max_papers
         })
-        
     except Exception as e:
-        app.logger.error(f'FAISS search error: {str(e)}')
-        return jsonify({'error': f'Search error: {str(e)}'}), 500
-
-@app.route('/search_author', methods=['GET'])
-def search_author():
-    """Search for a specific author by name across all concepts"""
-    author_name = request.args.get('name', '').strip()
-    
-    if not author_name:
-        return jsonify({'error': 'Author name is required'}), 400
-    
-    try:
-        concepts = ['artificial_intelligence', 'machine_learning', 'deep_learning', 'computer_vision', 'reinforcement_learning']
-        found_authors = []
-        
-        for concept in concepts:
-            try:
-                authors_data = get_authors_for_concept(concept)
-                if authors_data:
-                    for author in authors_data:
-                        if isinstance(author, dict):
-                            name = author.get('display_name') or author.get('name', '')
-                            if author_name.lower() in name.lower():
-                                author['concept'] = concept
-                                found_authors.append(author)
-            except Exception as e:
-                print(f"Error searching in {concept}: {e}")
-                continue
-        
-        return jsonify({
-            'success': True,
-            'data': found_authors,
-            'query': author_name,
-            'count': len(found_authors)
-        })
-        
-    except Exception as e:
-        app.logger.error(f'Author search error: {str(e)}')
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
-
-@app.route('/analyze_author', methods=['POST'])
-def analyze_author():
-    """Analyze author-topic alignment using trained models - handles both ID and name"""
-    global trained_models
-    
-    try:
-        data = request.get_json()
-        author_input = data.get('author_id', '').strip()
-        topic = data.get('topic', '')
-        
-        if not author_input or not topic:
-            return jsonify({'error': 'Author ID/name and topic are required'}), 400
-        
-        if not trained_models:
-            return jsonify({'error': 'No trained models available. Please train models in Case 1 first.'}), 400
-        
-        author_data = None
-        if author_input.startswith('A') and len(author_input) > 5 and author_input[1:].isdigit():
-
-            return jsonify({'error': 'ID search not supported. Please use author name.'}), 400
-        else:
-            concepts = ['artificial_intelligence', 'machine_learning', 'deep_learning', 'computer_vision', 'reinforcement_learning']
-            
-            for concept in concepts:
-                try:
-                    authors_data = get_authors_for_concept(concept)
-                    if authors_data:
-                        for author in authors_data:
-                            if isinstance(author, dict):
-                                name = author.get('display_name') or author.get('name', '')
-                                if author_input.lower() in name.lower():
-                                    author_data = author
-                                    author_data['concept'] = concept
-                                    break
-                    if author_data:
-                        break
-                except Exception:
-                    continue
-        
-        if not author_data:
-            return jsonify({'error': f'Author "{author_input}" not found'}), 404
-        
-        author_name = author_data.get('display_name') or author_data.get('name', '')
-        author_context = f"Author: {author_name}. Research: {topic}. "
-        
-        if 'affiliation' in author_data:
-            author_context += f"Affiliation: {author_data.get('affiliation', '')}. "
-        if 'institution' in author_data:
-            author_context += f"Institution: {author_data.get('institution', '')}. "
-        if 'works_count' in author_data:
-            author_context += f"Works: {author_data.get('works_count', 0)}. "
-        if 'paper_count' in author_data:
-            author_context += f"Papers: {author_data.get('paper_count', 0)}. "
-        if 'cited_by_count' in author_data:
-            author_context += f"Citations: {author_data.get('cited_by_count', 0)}. "
-        if 'total_citations' in author_data:
-            author_context += f"Total citations: {author_data.get('total_citations', 0)}. "
-        
-        author_context += f"Keywords: {topic}, artificial intelligence, machine learning, research."
-        
-        results = {}
-        
-        if 'tfidf_vectorizer' in trained_models and 'tfidf_matrix' in trained_models:
-            try:
-                enhanced_topic = f"{topic} artificial intelligence machine learning research author {author_name}"
-                topic_tfidf = trained_models['tfidf_vectorizer'].transform([enhanced_topic])
-                author_tfidf = trained_models['tfidf_vectorizer'].transform([author_context])
-                tfidf_similarity = cosine_similarity(topic_tfidf, author_tfidf)[0][0]
-                
-                if tfidf_similarity < 0.3:
-                    tfidf_similarity = 0.3 + (tfidf_similarity * 0.4)
-                
-                tfidf_similarity = tfidf_similarity * 100
-                results['tfidf_similarity'] = float(tfidf_similarity)
-            except Exception as e:
-                results['tfidf_similarity'] = 45.0
-                results['tfidf_error'] = str(e)
-        
-        if trained_models.get('dpr_available'):
-            try:
-                import hashlib
-                
-                hash_input = f"{author_name}_{topic}".lower()
-                hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
-                
-                dpr_similarity = 50 + (hash_value % 36)
-                results['dpr_similarity'] = float(dpr_similarity)
-                
-            except Exception as e:
-                results['dpr_similarity'] = 62.0
-                results['dpr_error'] = str(e)
-        
-        similarities = []
-        if 'tfidf_similarity' in results:
-            similarities.append(results['tfidf_similarity'])
-        if 'dpr_similarity' in results:
-            similarities.append(results['dpr_similarity'])
-        
-        if similarities:
-            results['overall_alignment'] = float(np.mean(similarities))
-            results['alignment_level'] = get_alignment_level(results['overall_alignment'] / 100) 
-        
-        # Calculate F1 score for individual analysis
-        if 'tfidf_similarity' in results and 'dpr_similarity' in results:
-            def calculate_f1(tfidf, dpr):
-                precision = (tfidf + dpr) / 200  # Convert to 0-1 range
-                recall = max(tfidf, dpr) / 100   # Convert to 0-1 range
-                if precision + recall == 0:
-                    return 0
-                f1 = 2 * (precision * recall) / (precision + recall)
-                return f1 * 100  # Convert back to percentage
-            
-            results['f1_score'] = calculate_f1(results['tfidf_similarity'], results['dpr_similarity'])
-        
-        results['timeline_data'] = {
-            'labels': ['Initial Analysis', 'TF-IDF Processing', 'DPR Processing', 'Final Comparison'],
-            'tfidf_scores': [
-                results.get('tfidf_similarity', 45) * 0.8,
-                results.get('tfidf_similarity', 45),
-                results.get('tfidf_similarity', 45) * 0.9,
-                results.get('tfidf_similarity', 45) * 0.95
-            ],
-            'dpr_scores': [
-                results.get('dpr_similarity', 62) * 0.7,
-                results.get('dpr_similarity', 62) * 0.85,
-                results.get('dpr_similarity', 62),
-                results.get('dpr_similarity', 62) * 0.98
-            ]
-        }
-        
-        results['success'] = True
-        results['author_name'] = author_name
-        results['topic'] = topic
-        
-        return jsonify(results)
-        
-    except Exception as e:
-        app.logger.error(f'Author analysis error: {str(e)}')
         return jsonify({'error': f'Analysis error: {str(e)}'}), 500
-
-def get_alignment_level(score):
-    """Convert similarity score to alignment level"""
-    if score >= 0.8:
-        return "Very High"
-    elif score >= 0.6:
-        return "High"
-    elif score >= 0.4:
-        return "Medium"
-    elif score >= 0.2:
-        return "Low"
-    else:
-        return "Very Low"
-
-@app.route('/train', methods=['POST'])
-def train_models():
-    """Train TF-IDF, LSA, and Dual BERT DPR models using search results (FAST)"""
-    global current_search_data, trained_models
-    
-    try:
-        data = request.get_json()
-        base_query = data.get('base_query', '')
-        
-        if not base_query:
-            return jsonify({'error': 'Base query is required'}), 400
-        
-        if not current_search_data:
-            return jsonify({'error': 'No search data available. Please perform a search first.'}), 400
-        
-        contexts = []
-        metadata = []
-        
-        limited_data = current_search_data[:10000]
-        
-        for item in limited_data:
-            if isinstance(item, dict):
-                if 'display_name' in item or 'name' in item:
-                    name = item.get('display_name') or item.get('name', '')
-                    affiliation = item.get('affiliation', '') or item.get('institution', '')
-                    works = item.get('works_count', 0) or item.get('paper_count', 0)
-                    citations = item.get('cited_by_count', 0) or item.get('total_citations', 0)
-                    
-                    # Enhanced context with more details
-                    context = f"Author: {name}. Research: {base_query}. Affiliation: {affiliation}. Works: {works}. Citations: {citations}. Keywords: {base_query}, artificial intelligence, machine learning, research."
-                    
-                    contexts.append(context)
-                    metadata.append({
-                        'type': 'author',
-                        'name': name,
-                        'works_count': works,
-                        'cited_by_count': citations
-                    })
-                
-                elif 'title' in item:
-                    title = item.get('title', '')
-                    citations = item.get('citations') or item.get('cited_by_count', 0)
-                    year = item.get('year', '') or item.get('publication_year', '')
-                    
-                    # Enhanced context for papers
-                    context = f"Paper: {title}. Topic: {base_query}. Year: {year}. Citations: {citations}. Keywords: {base_query}, research, publication."
-                    
-                    contexts.append(context)
-                    metadata.append({
-                        'type': 'paper',
-                        'title': title,
-                        'cited_by_count': citations
-                    })
-        
-        if not contexts:
-            return jsonify({'error': 'No valid contexts found for training'}), 400
-        
-        # Enhanced TF-IDF with better parameters
-        tfidf_vectorizer = TfidfVectorizer(
-            max_features=500,  # Increased features
-            stop_words='english',
-            ngram_range=(1, 2),  # Include bigrams
-            min_df=1,
-            max_df=0.95,
-            sublinear_tf=True  # Better normalization
-        )
-        tfidf_matrix = tfidf_vectorizer.fit_transform(contexts)
-        
-        # Enhanced LSA
-        lsa_model = TruncatedSVD(n_components=50, random_state=42)  # More components
-        lsa_matrix = lsa_model.fit_transform(tfidf_matrix)
-        
-        dpr_success = True
-        
-        trained_models = {
-            'base_query': base_query,
-            'contexts': contexts,
-            'metadata': metadata,
-            'tfidf_vectorizer': tfidf_vectorizer,
-            'tfidf_matrix': tfidf_matrix,
-            'lsa_model': lsa_model,
-            'lsa_matrix': lsa_matrix,
-            'dpr_available': dpr_success
-        }
-        
-        return jsonify({
-            'success': True,
-            'message': 'All models trained successfully with enhanced features',
-            'stats': {
-                'contexts_processed': len(contexts),
-                'query': base_query,
-                'models_trained': {
-                    'tfidf': True,
-                    'lsa': True,
-                    'dpr': dpr_success
-                }
-            }
-        })
-        
-    except Exception as e:
-        app.logger.error(f'Training error: {str(e)}')
-        return jsonify({'error': f'Training error: {str(e)}'}), 500
-
-@app.route('/compare', methods=['POST'])
-def compare_models():
-    """Compare using TF-IDF, LSA, and Dual BERT DPR approaches with FIXED performance scores"""
-    global trained_models
-    
-    try:
-        data = request.get_json()
-        test_query = data.get('test_query', '')
-        
-        if not test_query:
-            return jsonify({'error': 'Test query is required'}), 400
-        
-        if not trained_models:
-            return jsonify({'error': 'No trained models available. Please train models first.'}), 400
-        
-        contexts = trained_models['contexts']
-        metadata = trained_models['metadata']
-        
-        results = {}
-        
-        # Enhanced TF-IDF processing
-        try:
-            # Better query processing for "Who has been doing AI?" type questions
-            enhanced_query = test_query
-            if 'who' in test_query.lower() and 'ai' in test_query.lower():
-                enhanced_query = f"{test_query} artificial intelligence researchers authors machine learning"
-            
-            query_tfidf = trained_models['tfidf_vectorizer'].transform([enhanced_query])
-            tfidf_similarities = cosine_similarity(query_tfidf, trained_models['tfidf_matrix']).flatten()
-            
-            # Better similarity processing with minimum threshold
-            if len(tfidf_similarities) > 0:
-                # Normalize and ensure minimum relevance
-                max_sim = np.max(tfidf_similarities)
-                if max_sim > 0:
-                    tfidf_similarities = (tfidf_similarities / max_sim)
-                    # Apply minimum threshold to avoid 0.00 results
-                    tfidf_similarities = np.maximum(tfidf_similarities, 0.1)
-                    tfidf_similarities = tfidf_similarities * 100
-                else:
-                    tfidf_similarities = np.random.uniform(15, 65, len(tfidf_similarities))
-            
-            tfidf_results = []
-            top_tfidf_indices = np.argsort(tfidf_similarities)[::-1][:10]
-            for idx in top_tfidf_indices:
-                if idx < len(metadata):
-                    if metadata[idx]['type'] == 'author':
-                        tfidf_results.append({
-                            'name': metadata[idx]['name'],
-                            'similarity': float(tfidf_similarities[idx]),
-                            'works_count': metadata[idx]['works_count'],
-                            'cited_by_count': metadata[idx]['cited_by_count']
-                        })
-                    elif metadata[idx]['type'] == 'paper':
-                        tfidf_results.append({
-                            'title': metadata[idx]['title'],
-                            'similarity': float(tfidf_similarities[idx]),
-                            'cited_by_count': metadata[idx]['cited_by_count']
-                        })
-            
-            results['tfidf_results'] = tfidf_results
-        except Exception as e:
-            results['tfidf_error'] = str(e)
-        
-        # Enhanced LSA processing
-        try:
-            enhanced_query = test_query
-            if 'who' in test_query.lower() and 'ai' in test_query.lower():
-                enhanced_query = f"{test_query} artificial intelligence researchers authors machine learning"
-                
-            query_tfidf = trained_models['tfidf_vectorizer'].transform([enhanced_query])
-            query_lsa = trained_models['lsa_model'].transform(query_tfidf)
-            lsa_similarities = cosine_similarity(query_lsa, trained_models['lsa_matrix']).flatten()
-            
-            # Better similarity processing
-            if len(lsa_similarities) > 0:
-                max_sim = np.max(lsa_similarities)
-                if max_sim > 0:
-                    lsa_similarities = (lsa_similarities / max_sim)
-                    lsa_similarities = np.maximum(lsa_similarities, 0.12)  # Minimum threshold
-                    lsa_similarities = lsa_similarities * 100
-                else:
-                    lsa_similarities = np.random.uniform(20, 70, len(lsa_similarities))
-            
-            lsa_results = []
-            top_lsa_indices = np.argsort(lsa_similarities)[::-1][:10]
-            for idx in top_lsa_indices:
-                if idx < len(metadata):
-                    if metadata[idx]['type'] == 'author':
-                        lsa_results.append({
-                            'name': metadata[idx]['name'],
-                            'similarity': float(lsa_similarities[idx]),
-                            'works_count': metadata[idx]['works_count'],
-                            'cited_by_count': metadata[idx]['cited_by_count']
-                        })
-                    elif metadata[idx]['type'] == 'paper':
-                        lsa_results.append({
-                            'title': metadata[idx]['title'],
-                            'similarity': float(lsa_similarities[idx]),
-                            'cited_by_count': metadata[idx]['cited_by_count']
-                        })
-            
-            results['lsa_results'] = lsa_results
-        except Exception as e:
-            results['lsa_error'] = str(e)
-        
-        # Enhanced DPR processing
-        if trained_models['dpr_available']:
-            try:
-                # Simulate better DPR with enhanced similarity calculation
-                import hashlib
-                
-                dpr_results = []
-                for i, context in enumerate(contexts[:50]):  # Process top contexts
-                    if i < len(metadata):
-                        # Better hash-based similarity that considers query content
-                        hash_input = f"{test_query}_{metadata[i].get('name', metadata[i].get('title', ''))}_{trained_models['base_query']}".lower()
-                        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
-                        
-                        # More realistic similarity distribution
-                        base_similarity = 25 + (hash_value % 60)  # 25-85 range
-                        
-                        # Boost for AI-related queries
-                        if 'ai' in test_query.lower() or 'artificial' in test_query.lower():
-                            base_similarity = min(95, base_similarity + 10)
-                        
-                        if metadata[i]['type'] == 'author':
-                            dpr_results.append({
-                                'name': metadata[i]['name'],
-                                'similarity': float(base_similarity),
-                                'works_count': metadata[i]['works_count'],
-                                'cited_by_count': metadata[i]['cited_by_count']
-                            })
-                        elif metadata[i]['type'] == 'paper':
-                            dpr_results.append({
-                                'title': metadata[i]['title'],
-                                'similarity': float(base_similarity),
-                                'cited_by_count': metadata[i]['cited_by_count']
-                            })
-                
-                # Sort by similarity
-                dpr_results = sorted(dpr_results, key=lambda x: x['similarity'], reverse=True)[:10]
-                results['dpr_results'] = dpr_results
-                
-                # Generate answer for "Who has been doing AI?" type questions
-                if 'who' in test_query.lower() and 'ai' in test_query.lower():
-                    answer = f"Based on dual BERT DPR analysis for '{test_query}':\n\n"
-                    for i, result in enumerate(dpr_results[:5], 1):
-                        if 'name' in result:
-                            answer += f"{i}. {result['name']} - {result['works_count']} works, {result['cited_by_count']} citations (relevance: {result['similarity']:.1f}%)\n"
-                        else:
-                            answer += f"{i}. {result['title']} - {result['cited_by_count']} citations (relevance: {result['similarity']:.1f}%)\n"
-                    results['answer'] = answer
-                
-            except Exception as e:
-                results['dpr_error'] = str(e)
-        else:
-            results['dpr_error'] = 'DPR models not available'
-        
-        results['success'] = True
-        results['method'] = 'enhanced_tfidf_lsa_dpr_comparison'
-        
-        # FIXED: Calculate real performance scores as decimals (0.0-1.0)
-        performance_scores = {}
-        
-        if 'tfidf_results' in results and results['tfidf_results']:
-            tfidf_scores = [r['similarity'] for r in results['tfidf_results'][:5]]
-            # Convert percentage to decimal for chart
-            performance_scores['tfidf'] = float(np.mean(tfidf_scores) / 100.0)
-        
-        if 'lsa_results' in results and results['lsa_results']:
-            lsa_scores = [r['similarity'] for r in results['lsa_results'][:5]]
-            # Convert percentage to decimal for chart
-            performance_scores['lsa'] = float(np.mean(lsa_scores) / 100.0)
-        
-        if 'dpr_results' in results and results['dpr_results']:
-            dpr_scores = [r['similarity'] for r in results['dpr_results'][:5]]
-            # Convert percentage to decimal for chart
-            performance_scores['dpr'] = float(np.mean(dpr_scores) / 100.0)
-        
-        # Debug logging
-        print(f"DEBUG: Performance scores calculated: {performance_scores}")
-        
-        results['performance_scores'] = performance_scores
-        
-        return jsonify(results)
-        
-    except Exception as e:
-        app.logger.error(f'Comparison error: {str(e)}')
-        return jsonify({'error': f'Comparison error: {str(e)}'}), 500
-
-def get_authors_for_concept(concept):
-    """Helper function to get authors data for a specific concept"""
-    file_mapping = {
-        'artificial_intelligence': 'top_ai_authors_with_papers.json',
-        'machine_learning': 'top_ml_authors.json',
-        'deep_learning': 'top_dl_authors_with_papers.json',
-        'computer_vision': 'top_cv_authors.json',
-        'reinforcement_learning': 'top_rl_authors_with_papers.json'
-    }
-    
-    filename = file_mapping.get(concept)
-    if not filename:
-        return []
-    
-    file_path = os.path.join('searching_codes', 'top_authors_concept', filename)
-    
-    try:
-        authors_data = load_json_file(file_path)
-        if isinstance(authors_data, dict) and "authors" in authors_data:
-            authors_data = authors_data["authors"]
-        return authors_data if isinstance(authors_data, list) else []
-    except Exception:
-        return []
-
-def determine_concept(query):
-    """Map search query to concept file"""
-    query = query.lower()
-    
-    if any(term in query for term in ['machine learning', 'ml', 'machine']):
-        return 'machine_learning'
-    elif any(term in query for term in ['deep learning', 'dl', 'deep', 'neural']):
-        return 'deep_learning'
-    elif any(term in query for term in ['computer vision', 'cv', 'vision', 'image']):
-        return 'computer_vision'
-    elif any(term in query for term in ['reinforcement learning', 'rl', 'reinforcement']):
-        return 'reinforcement_learning'
-    else:
-        return 'artificial_intelligence'
-
-def load_json_file(file_path):
-    """Load JSON file with proper encoding handling"""
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f'File not found: {file_path}')
-    
-    # Try UTF-8 first, then fallback to other encodings
-    for encoding in ['utf-8', 'latin-1', 'cp1252']:
-        try:
-            with open(file_path, 'r', encoding=encoding) as f:
-                return json.load(f)
-        except (UnicodeDecodeError, json.JSONDecodeError) as e:
-            app.logger.warning(f'Error with encoding {encoding}: {str(e)}')
-            continue
-    
-    raise Exception(f'Could not decode file: {file_path}')
-
-def get_authors_data(concept):
-    """Get authors data from top_authors_concept folder"""
-    file_mapping = {
-        'artificial_intelligence': 'top_ai_authors_with_papers.json',
-        'machine_learning': 'top_ml_authors.json',
-        'deep_learning': 'top_dl_authors_with_papers.json',
-        'computer_vision': 'top_cv_authors.json',
-        'reinforcement_learning': 'top_rl_authors_with_papers.json'
-    }
-
-    filename = file_mapping.get(concept)
-    if not filename:
-        return jsonify({'error': f'No authors file for concept: {concept}'}), 404
-
-    file_path = os.path.join('searching_codes', 'top_authors_concept', filename)
-
-    try:
-        authors_data = load_json_file(file_path)
-
-        if isinstance(authors_data, dict) and "authors" in authors_data:
-            authors_data = authors_data["authors"]
-
-        return jsonify({
-            'success': True,
-            'data': authors_data,
-            'concept': concept,
-            'type': 'authors',
-            'count': len(authors_data)
-        })
-    except Exception as e:
-        app.logger.error(f'Error loading authors data: {str(e)}')
-        return jsonify({'error': str(e)}), 500
-
-def get_papers_data(concept):
-    """Get papers data from papers_by_concept folder"""
-    file_path = os.path.join('searching_codes', 'papers_by_concept', f'{concept}.json')
-    
-    try:
-        papers_data = load_json_file(file_path)
-        
-        # Add total citations calculation for papers
-        total_citations = 0
-        for paper in papers_data:
-            if isinstance(paper, dict):
-                citations = 0
-                if 'citations' in paper:
-                    citations = paper['citations']
-                    paper['cited_by_count'] = citations
-                elif 'cited_by_count' in paper:
-                    citations = paper['cited_by_count']
-                else:
-                    paper['cited_by_count'] = 0
-                
-                total_citations += citations
-        
-        return jsonify({
-            'success': True,
-            'data': papers_data,
-            'concept': concept,
-            'type': 'papers',
-            'count': len(papers_data) if isinstance(papers_data, list) else 0,
-            'total_citations': total_citations  # Added total citations
-        })
-    except Exception as e:
-        app.logger.error(f'Error loading papers data: {str(e)}')
-        return jsonify({'error': str(e)}), 500
-
-def get_institutions_data(concept):
-    """Get institutions data from institutions_by_domain folder"""
-    file_path = os.path.join('searching_codes', 'institutions_by_domain', f'{concept}.json')
-    
-    try:
-        institutions_raw = load_json_file(file_path)
-        
-        institutions_data = []
-        for item in institutions_raw:
-            if isinstance(item, list) and len(item) >= 2:
-                institutions_data.append({
-                    'name': str(item[0]),
-                    'score': item[1] if len(item) > 1 else 0
-                })
-            elif isinstance(item, dict):
-                institutions_data.append(item)
-        
-        return jsonify({
-            'success': True,
-            'data': institutions_data,
-            'concept': concept,
-            'type': 'institutions',
-            'count': len(institutions_data)
-        })
-    except Exception as e:
-        app.logger.error(f'Error loading institutions data: {str(e)}')
-        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
