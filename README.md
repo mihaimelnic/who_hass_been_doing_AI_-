@@ -13,18 +13,9 @@ Each of them includes 4 subfields of AI:
 - Deep Learning
 - Reinforcement Learning
 - Computer Vision
-
-For each subfield, 10,000 data entries were retrieved via:
-- Concept-based search
-- Title & abstract keyword filtering
-- Filtering by primary field (AI or subfields)
-
 ---
 
-## About the Code
-
-The code is split into **two parts**:
-1. **Data Extraction and Preprocessing Pipeline**
+**Data Extraction and Preprocessing Pipeline**
 ```mermaid
 graph LR
 A[OpenAlex API] --> B[Data Extraction]
@@ -42,31 +33,21 @@ F --> K[Artificial Intelligence]
 ```
 ---
 
-## Demo Engine Architecture
+## Code Structure and Experimentdal Designs
+The `searching_codes/` directory contains the Python scripts and data files used for data collection, processing, and analysis, aligning with the methodology outlined in the thesis, particularly in Section 3: Methodology.
 
-The engine supports **3 main use-cases**:
+`searching_codes/institutions_by_domain/`
+These JSON files contain processed data related to institutions, and helps on the application of the institutional ranking formula mentioned in the thesis. This data is used to identify and rank influential institutions within each AI domain.
 
-### Case 1: Search + Metadata Comparison
-- **Step 1**: Search Authors / Papers / Institutions
-- **Step 2**: Compare metadata with a given topic using:
-  - **DPR** (facebook-dpr-question_encoder-single-nq-base, facebook-dpr-ctx_encoder-single-nq-base, MiniLM)
-  - **TF-IDF** (max_features=500, ngram_range=(1,2), sublinear_tf=True)
-  - **LSA** (TruncatedSVD)
-  - Cosine similarity for all comparisons
-- Returns top results ordered by similarity score
+`searching_codes/papers_by_concept/`
+Similar to `institutions_by_domain/`, these JSON files store processed data related to academic papers, categorized by AI concept. This data is crucial for tracking topic development and identifying key papers within each subfield, as detailed in the thesis for institutions.
 
-### Case 2: Author-Topic Alignment
-- Uses **FAISS** indexing and the full authors dataset
-- Maps user topic to concept space
-- Searches authors across concepts using similarity
-- Returns top 5 author profiles with matching metadata
+`searching_codes/top_authors_concept/`
+This subdirectory holds JSON files (`top_ai_authors_with_papers.json`, `top_cv_authors.json`, etc.) that contain information about the most influential authors in each AI subfield. These files are the result of applying the author ranking methodologies, as detailed in the thesis for author profiling.
 
-### Case 3: Institution Ranking
-- Uses trained models from Case 1
-- Scores institutions by topic relevance (via paper similarity)
-- Aggregates over time & geography
-- Returns top 10 contributing institutions (modifiable query)
+`file.py` and `index.html` the recommendation framework. `index.html` is the front-end interface, and `file.py` serves as a backend script to handle user queries and interact with the processed data and retrieval models. This aligns with the thesis's purpose to provide a "scalable and user-friendly tool that can support students and early-career researchers" and a "connected interface" for literature search and recommendations.
 
+The provided code structure directly showcase how to arrive to the experimental design and methodologies detailed in the thesis. The data files (`all_data/`, `institutions_by_domain/`, `papers_by_concept/`, `top_authors_concept/`) represent the output of the data collection and processing phases, the Python code implement the core analytical and retrieval mechanisms. The `index.html` display the implementation of the user-friendly interface, bringing the theoretical framework into a practical application. This organization ensures that the code base is a direct, verifiable implementation of the research presented in the thesis. 
 ---
 
 ## Author & Supervisor
