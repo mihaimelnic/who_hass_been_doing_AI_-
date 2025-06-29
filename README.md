@@ -48,6 +48,7 @@ This subdirectory holds JSON files (`top_ai_authors_with_papers.json`, `top_cv_a
 `file.py` and `index.html` the recommendation framework. `index.html` is the front-end interface, and `file.py` serves as a backend script to handle user queries and interact with the processed data and retrieval models. This aligns with the thesis's purpose to provide a "scalable and user-friendly tool that can support students and early-career researchers" and a "connected interface" for literature search and recommendations.
 
 The provided code structure directly showcase how to arrive to the experimental design and methodologies detailed in the thesis. The data files (`all_data/`, `institutions_by_domain/`, `papers_by_concept/`, `top_authors_concept/`) represent the output of the data collection and processing phases, the Python code implement the core analytical and retrieval mechanisms. The `index.html` display the implementation of the user-friendly interface, bringing the theoretical framework into a practical application. This organization ensures that the code base is a direct, verifiable implementation of the research presented in the thesis. 
+
 ---
 
 ## Author & Supervisor
